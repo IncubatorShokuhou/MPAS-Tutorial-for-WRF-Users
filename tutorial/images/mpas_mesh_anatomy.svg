@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="430" viewBox="0 0 1000 430">
+  <style>
+    text { font-family: sans-serif; fill: #172033 }
+    .title { font-size: 22px; font-weight: 700 }
+    .label { font-size: 17px; font-weight: 700 }
+    .small { font-size: 14px }
+    .cell { fill: #eaf3ff; stroke: #377eb8; stroke-width: 3 }
+    .neighbor { fill: #f3f7fb; stroke: #8092a8; stroke-width: 2 }
+    .edge { stroke: #2f8f46; stroke-width: 7 }
+    .link { stroke: #7b8794; stroke-width: 3 }
+    .arrow { stroke: #d95f02; stroke-width: 4; marker-end: url(#arrow) }
+    .rank0 { fill: #d7ecff; stroke: #377eb8; stroke-width: 2 }
+    .rank1 { fill: #ffe0cc; stroke: #d95f02; stroke-width: 2 }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#d95f02"/>
+    </marker>
+  </defs>
+
+  <text x="500" y="30" text-anchor="middle" class="title">MPAS 网格位置与图划分：先认位置，再认分工</text>
+
+  <text x="245" y="67" text-anchor="middle" class="label">A. 一个 cell 的三类位置</text>
+  <polygon points="140,210 195,115 315,115 370,210 315,305 195,305" class="cell"/>
+  <polygon points="20,210 75,115 195,115 140,210 195,305 75,305" class="neighbor"/>
+
+  <line x1="195" y1="115" x2="140" y2="210" class="edge"/>
+  <circle cx="255" cy="210" r="9" fill="#377eb8"/>
+  <circle cx="195" cy="115" r="8" fill="#c51b7d"/>
+  <circle cx="140" cy="210" r="8" fill="#c51b7d"/>
+  <line x1="168" y1="162" x2="235" y2="201" class="arrow"/>
+
+  <text x="255" y="192" text-anchor="middle" class="label">cell</text>
+  <text x="255" y="235" text-anchor="middle" class="small">标量中心</text>
+  <text x="105" y="165" text-anchor="middle" class="label">edge</text>
+  <text x="235" y="170" class="small">法向风 u</text>
+  <text x="195" y="104" text-anchor="middle" class="label">vertex</text>
+  <text x="245" y="380" text-anchor="middle" class="small">nCells、nEdges、nVertices 是三套数组长度，不是规则 i,j</text>
+
+  <line x1="530" y1="55" x2="530" y2="405" stroke="#ccd3dc" stroke-width="2"/>
+  <text x="765" y="67" text-anchor="middle" class="label">B. 邻接图如何变成 part.N</text>
+
+  <line x1="635" y1="150" x2="725" y2="105" class="link"/>
+  <line x1="635" y1="150" x2="725" y2="195" class="link"/>
+  <line x1="725" y1="105" x2="815" y2="150" class="link"/>
+  <line x1="725" y1="195" x2="815" y2="150" class="link"/>
+  <line x1="815" y1="150" x2="905" y2="105" class="link"/>
+  <line x1="815" y1="150" x2="905" y2="195" class="link"/>
+
+  <circle cx="635" cy="150" r="25" class="rank0"/>
+  <circle cx="725" cy="105" r="25" class="rank0"/>
+  <circle cx="725" cy="195" r="25" class="rank0"/>
+  <circle cx="815" cy="150" r="25" class="rank1"/>
+  <circle cx="905" cy="105" r="25" class="rank1"/>
+  <circle cx="905" cy="195" r="25" class="rank1"/>
+
+  <text x="635" y="155" text-anchor="middle" class="small">cell 1</text>
+  <text x="725" y="110" text-anchor="middle" class="small">cell 2</text>
+  <text x="725" y="200" text-anchor="middle" class="small">cell 3</text>
+  <text x="815" y="155" text-anchor="middle" class="small">cell 4</text>
+  <text x="905" y="110" text-anchor="middle" class="small">cell 5</text>
+  <text x="905" y="200" text-anchor="middle" class="small">cell 6</text>
+
+  <rect x="625" y="255" width="180" height="42" rx="8" class="rank0"/>
+  <text x="715" y="282" text-anchor="middle" class="label">MPI rank 0</text>
+  <rect x="825" y="255" width="135" height="42" rx="8" class="rank1"/>
+  <text x="892" y="282" text-anchor="middle" class="label">rank 1</text>
+  <text x="795" y="330" text-anchor="middle" class="small">graph.info：记录连线（谁与谁相邻）</text>
+  <text x="795" y="355" text-anchor="middle" class="small">graph.info.part.2：每个 cell 一行，写 0 或 1</text>
+  <text x="795" y="380" text-anchor="middle" class="small">mpiexec -n 2 必须配 part.2</text>
+</svg>

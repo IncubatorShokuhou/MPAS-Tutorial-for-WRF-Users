@@ -1,31 +1,85 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="390" viewBox="0 0 1100 390">
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="500" viewBox="0 0 1100 500">
   <style>
-    text { font-family: sans-serif; fill: #172033 } .title { font-size: 24px; font-weight: 700 }
-    .label { font-size: 18px; font-weight: 700 } .small { font-size: 15px }
-    .wrf { fill: #e9f3ff; stroke: #377eb8; stroke-width: 2 } .mpas { fill: #eaf7ed; stroke: #2f8f46; stroke-width: 2 }
-    .arrow { stroke: #555; stroke-width: 2.5; marker-end: url(#a) }
+    text { font-family: sans-serif; fill: #172033 }
+    .title { font-size: 24px; font-weight: 700 }
+    .label { font-size: 18px; font-weight: 700 }
+    .small { font-size: 15px }
+    .tiny { font-size: 13px }
+    .wrf { fill: #e9f3ff; stroke: #377eb8; stroke-width: 2 }
+    .mpas { fill: #eaf7ed; stroke: #2f8f46; stroke-width: 2 }
+    .data { fill: #fff8df; stroke: #b68a18; stroke-width: 2 }
+    .arrow { stroke: #555; stroke-width: 2.3; fill: none; marker-end: url(#arrow) }
   </style>
-  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#555"/></marker></defs>
-  <text x="550" y="32" text-anchor="middle" class="title">同一批 GFS，两个不同的网格世界</text>
-  <text x="40" y="78" class="label">WRF：先定义矩形 domain</text>
-  <rect x="40" y="100" width="190" height="70" rx="10" class="wrf"/><text x="135" y="128" text-anchor="middle" class="small">geogrid.exe</text><text x="135" y="151" text-anchor="middle" class="small">中心/投影/dx/dy</text>
-  <line x1="230" y1="135" x2="285" y2="135" class="arrow"/>
-  <rect x="290" y="100" width="150" height="70" rx="10" class="wrf"/><text x="365" y="141" text-anchor="middle" class="small">ungrib.exe</text>
-  <line x1="440" y1="135" x2="495" y2="135" class="arrow"/>
-  <rect x="500" y="100" width="150" height="70" rx="10" class="wrf"/><text x="575" y="141" text-anchor="middle" class="small">metgrid.exe</text>
-  <line x1="650" y1="135" x2="705" y2="135" class="arrow"/>
-  <rect x="710" y="100" width="160" height="70" rx="10" class="wrf"/><text x="790" y="129" text-anchor="middle" class="small">wrfinput</text><text x="790" y="151" text-anchor="middle" class="small">wrfbdy</text>
-  <line x1="870" y1="135" x2="925" y2="135" class="arrow"/>
-  <rect x="930" y="100" width="130" height="70" rx="10" class="wrf"/><text x="995" y="141" text-anchor="middle" class="small">wrf.exe</text>
-  <text x="40" y="238" class="label">MPAS-A：先选择已存在的球面网格</text>
-  <rect x="40" y="260" width="190" height="70" rx="10" class="mpas"/><text x="135" y="288" text-anchor="middle" class="small">grid.nc</text><text x="135" y="311" text-anchor="middle" class="small">多边形与邻接关系</text>
-  <line x1="230" y1="295" x2="285" y2="295" class="arrow"/>
-  <rect x="290" y="260" width="150" height="70" rx="10" class="mpas"/><text x="365" y="301" text-anchor="middle" class="small">ungrib.exe</text>
-  <line x1="440" y1="295" x2="495" y2="295" class="arrow"/>
-  <rect x="500" y="260" width="190" height="70" rx="10" class="mpas"/><text x="595" y="288" text-anchor="middle" class="small">init_atmosphere</text><text x="595" y="311" text-anchor="middle" class="small">static.nc + init.nc</text>
-  <line x1="690" y1="295" x2="745" y2="295" class="arrow"/>
-  <rect x="750" y="260" width="160" height="70" rx="10" class="mpas"/><text x="830" y="288" text-anchor="middle" class="small">init.nc</text><text x="830" y="311" text-anchor="middle" class="small">全球时无 wrfbdy</text>
-  <line x1="910" y1="295" x2="945" y2="295" class="arrow"/>
-  <rect x="950" y="260" width="110" height="70" rx="10" class="mpas"/><text x="1005" y="301" text-anchor="middle" class="small">MPAS-A</text>
-  <text x="550" y="372" text-anchor="middle" class="small">关键迁移：WPS 仍负责解码；MPAS 自己负责静态场、水平/垂直插值和积分</text>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#555"/>
+    </marker>
+  </defs>
+
+  <text x="550" y="31" text-anchor="middle" class="title">同一批 GFS，两种预处理思路</text>
+
+  <text x="35" y="70" class="label">WRF：两条支路在 metgrid 汇合</text>
+  <rect x="35" y="91" width="150" height="55" rx="9" class="data"/>
+  <text x="110" y="124" text-anchor="middle" class="small">WPS_GEOG</text>
+  <line x1="185" y1="119" x2="225" y2="119" class="arrow"/>
+  <rect x="230" y="91" width="160" height="55" rx="9" class="wrf"/>
+  <text x="310" y="113" text-anchor="middle" class="small">geogrid.exe</text>
+  <text x="310" y="134" text-anchor="middle" class="tiny">geo_em</text>
+
+  <rect x="35" y="163" width="150" height="55" rx="9" class="data"/>
+  <text x="110" y="196" text-anchor="middle" class="small">GFS GRIB2</text>
+  <line x1="185" y1="191" x2="225" y2="191" class="arrow"/>
+  <rect x="230" y="163" width="160" height="55" rx="9" class="wrf"/>
+  <text x="310" y="185" text-anchor="middle" class="small">ungrib.exe</text>
+  <text x="310" y="206" text-anchor="middle" class="tiny">FILE:*</text>
+
+  <path d="M390 119 H445 V151 H485" class="arrow"/>
+  <path d="M390 191 H445 V151 H485" class="arrow"/>
+  <rect x="490" y="123" width="150" height="55" rx="9" class="wrf"/>
+  <text x="565" y="156" text-anchor="middle" class="small">metgrid.exe</text>
+  <line x1="640" y1="151" x2="680" y2="151" class="arrow"/>
+  <rect x="685" y="123" width="175" height="55" rx="9" class="wrf"/>
+  <text x="772" y="145" text-anchor="middle" class="small">real.exe</text>
+  <text x="772" y="166" text-anchor="middle" class="tiny">wrfinput + wrfbdy</text>
+  <line x1="860" y1="151" x2="900" y2="151" class="arrow"/>
+  <rect x="905" y="123" width="150" height="55" rx="9" class="wrf"/>
+  <text x="980" y="156" text-anchor="middle" class="small">wrf.exe</text>
+
+  <text x="35" y="270" class="label">MPAS-A：网格/地表与气象资料也分成两条支路</text>
+  <rect x="35" y="291" width="150" height="55" rx="9" class="data"/>
+  <text x="110" y="313" text-anchor="middle" class="small">grid.nc</text>
+  <text x="110" y="334" text-anchor="middle" class="tiny">已有球面网格</text>
+  <rect x="35" y="363" width="150" height="55" rx="9" class="data"/>
+  <text x="110" y="396" text-anchor="middle" class="small">WPS_GEOG</text>
+  <path d="M185 319 H215 V342 H245" class="arrow"/>
+  <path d="M185 391 H215 V342 H245" class="arrow"/>
+  <rect x="250" y="315" width="170" height="55" rx="9" class="mpas"/>
+  <text x="335" y="337" text-anchor="middle" class="small">MPAS 初始化器</text>
+  <text x="335" y="358" text-anchor="middle" class="tiny">static 阶段</text>
+  <line x1="420" y1="342" x2="460" y2="342" class="arrow"/>
+  <rect x="465" y="315" width="135" height="55" rx="9" class="data"/>
+  <text x="532" y="348" text-anchor="middle" class="small">static.nc</text>
+
+  <rect x="250" y="408" width="135" height="55" rx="9" class="data"/>
+  <text x="317" y="430" text-anchor="middle" class="small">GFS GRIB2</text>
+  <text x="317" y="451" text-anchor="middle" class="tiny">外部气象资料</text>
+  <line x1="385" y1="436" x2="425" y2="436" class="arrow"/>
+  <rect x="430" y="408" width="135" height="55" rx="9" class="wrf"/>
+  <text x="497" y="430" text-anchor="middle" class="small">ungrib.exe</text>
+  <text x="497" y="451" text-anchor="middle" class="tiny">FILE:*</text>
+
+  <path d="M600 342 H630 V389 H665" class="arrow"/>
+  <path d="M565 436 H630 V389 H665" class="arrow"/>
+  <rect x="670" y="361" width="170" height="55" rx="9" class="mpas"/>
+  <text x="755" y="383" text-anchor="middle" class="small">MPAS 初始化器</text>
+  <text x="755" y="404" text-anchor="middle" class="tiny">气象初值阶段</text>
+  <line x1="840" y1="389" x2="880" y2="389" class="arrow"/>
+  <rect x="885" y="361" width="80" height="55" rx="9" class="data"/>
+  <text x="925" y="394" text-anchor="middle" class="small">init.nc</text>
+  <line x1="965" y1="389" x2="985" y2="389" class="arrow"/>
+  <rect x="990" y="361" width="75" height="55" rx="9" class="mpas"/>
+  <text x="1027" y="383" text-anchor="middle" class="small">MPAS-A</text>
+  <text x="1027" y="404" text-anchor="middle" class="tiny">积分</text>
+
+  <text x="550" y="487" text-anchor="middle" class="tiny">关键：grid.nc 不进入 ungrib；static.nc 与 FILE:* 到制作 init.nc 时才汇合</text>
 </svg>

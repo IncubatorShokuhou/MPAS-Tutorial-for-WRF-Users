@@ -1,7 +1,7 @@
 # MPAS-A Tutorial
 
 面向熟悉 WRF、但从未使用 MPAS 的读者：从 GCC/GFortran 源码编译开始，完成 GFS
-真实资料预报、北京变分辨率网格和 Python/Cartopy 后处理。教程采用“人话解释 → WRF
+真实资料预报、北京变分辨率网格原理和 Python/Cartopy 后处理。教程采用“人话解释 → WRF
 类比 → 实际命令 → 输出验收 → 费曼检查”的顺序。
 
 ## 推荐学习顺序
@@ -19,7 +19,7 @@
 | [8](tutorial/08_variable_resolution_mesh.md) | 北京加密网格 | 如何设置真正的“北京中心”？ |
 | [9](tutorial/09_cartopy_visualization.md) | Cartopy | 如何正确投影非结构网格？ |
 
-## 最短可运行路径
+## 最短可运行主线：240 km 基线
 
 ```bash
 ./install_mpas.sh
@@ -27,15 +27,23 @@
 ./prepare_beijing_case.sh
 cd work/beijing_240km_2026101500 && ./ungrib.exe && cd ../..
 NTASKS=16 ./run_beijing_case.sh all
+
+python3 -m venv work/venv-post
+source work/venv-post/bin/activate
+python -m pip install --upgrade pip
+python -m pip install numpy netCDF4 matplotlib
 python tools/analyze_beijing.py work/beijing_240km_2026101500
 ```
 
-北京 92–25 km 网格：
+## 可选实验：北京 92–25 km 网格
+
+下面的第一条命令可运行；第二条生成 static，目前会被本站 WPS_GEOG 子目录权限阻塞，
+不属于上面的已验证主线：
 
 ```bash
 ./prepare_beijing_vr_mesh.sh
 ./generate_beijing_vr_static.sh
 ```
 
-后一个命令要求当前账号能读取 `/eds/shared/dm/WPS_GEOG` 的数据子目录。构建物、输入
-资料和预报输出均位于 Git 忽略目录，可在换机后由脚本重建。
+可用 `GEOG_DIR=/path/to/WPS_GEOG ./generate_beijing_vr_static.sh` 指定另一份完整地理资料。
+构建物、输入资料和预报输出均位于 Git 忽略目录，可在换机后由脚本重建。
