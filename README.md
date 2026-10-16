@@ -28,3 +28,10 @@
 NTASKS=16 ./run_beijing_case.sh init
 NTASKS=16 ./run_beijing_case.sh forecast
 ```
+
+预报完成后，从[第 6 课：输出与北京时序](tutorial/06_output_and_beijing_timeseries.md)
+开始后处理：
+
+```bash
+python tools/analyze_beijing.py work/beijing_240km_2026101500
+```
