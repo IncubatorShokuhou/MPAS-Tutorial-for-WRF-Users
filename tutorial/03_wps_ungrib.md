@@ -89,7 +89,7 @@ ln -s "$OLDPWD/src/WPS-4.6.0/ungrib/Variable_Tables/Vtable.GFS" Vtable
 
 ```bash
 ./ungrib.exe
-tail -n 20 ungrib.log
+tail -n 20 logfile.log
 ls FILE:*
 ```
 

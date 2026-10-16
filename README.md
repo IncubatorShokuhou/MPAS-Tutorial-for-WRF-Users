@@ -14,3 +14,10 @@
 - `install_io_stack.sh`：完整并行 I/O 依赖栈；
 - `install_mpas.sh`：依赖栈和 MPAS 总入口；
 - `install_wps.sh`：WPS `ungrib` 与 GRIB2 依赖。
+
+编译完成后，从[第 4 课：理解 MPAS 网格并设计北京案例](tutorial/04_grid_and_beijing_case.md)
+开始真实预报案例，或直接准备案例目录：
+
+```bash
+./prepare_beijing_case.sh
+```
