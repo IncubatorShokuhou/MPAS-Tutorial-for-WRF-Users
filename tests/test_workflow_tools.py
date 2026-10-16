@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import netCDF4
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 os.environ.setdefault("MPLBACKEND", "Agg")
@@ -23,6 +24,7 @@ from analyze_beijing import (  # noqa: E402
     validate_time_continuity,
 )
 from mpas_io import validate_same_mesh  # noqa: E402
+from plot_mpas_mesh import cell_polygon  # noqa: E402
 
 
 def make_netcdf(
@@ -106,6 +108,22 @@ class MeshValidationTests(unittest.TestCase):
                     validate_same_mesh(
                         coordinates, diagnostics, coordinate_path, diagnostic_path
                     )
+
+
+class MeshPlotTests(unittest.TestCase):
+    def test_cell_polygon_maps_global_vertex_ids_to_local_positions(self) -> None:
+        polygon = cell_polygon(
+            0,
+            np.array([3]),
+            np.array([[43, 91, 17, 0]]),
+            {91: 0, 17: 1, 43: 2},
+            np.array([100.0, 110.0, 120.0]),
+            np.array([30.0, 40.0, 50.0]),
+        )
+        np.testing.assert_array_equal(
+            polygon,
+            np.array([[120.0, 50.0], [100.0, 30.0], [110.0, 40.0]]),
+        )
 
 
 class PrecipitationTests(unittest.TestCase):

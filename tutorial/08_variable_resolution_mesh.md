@@ -1,65 +1,65 @@
-# 第 8 课：把变分辨率网格旋转到北京
+# 第 8 课：把变分辨率网格转到北京
 
-## 本课问题
+熟悉 WRF 的读者，通常会从 `ref_lat/ref_lon`、`dx/dy` 和 `e_we/e_sn` 开始设置区域。但在
+MPAS-A 的 `namelist.atmosphere` 里，你找不到一组能直接生成水平网格的参数。那么，“以
+北京为中心”到底在哪里设置？
 
-WRF 用 `ref_lat/ref_lon`、`dx/dy`、`e_we/e_sn` 定义矩形 domain。MPAS-A 的
-`namelist.atmosphere` 不生成水平网格，那么“以北京为中心”究竟在哪里设置？
-
-答案是：先准备一个已经包含多边形位置和连接关系的 `grid.nc`，再让模式读取它。可以把
-一次 MPAS 真实资料预报分成三层：
+答案在模式运行之前：先准备一份已经写好多边形位置和连接关系的 `grid.nc`，再让 MPAS
+读取它。一次真实资料预报所需的文件，可以按下面三层理解：
 
 ```text
-几何层：grid.nc       多边形在哪里、谁和谁相邻
-地表层：static.nc     每个多边形对应什么地形、土壤和土地利用
-天气层：init.nc       某个起报时刻的风、温、湿、压和陆面状态
+网格文件 grid.nc       多边形在哪里，哪些网格单元互为邻居
+静态文件 static.nc     每个网格单元上的地形、土壤和土地利用是什么
+初值文件 init.nc       起报时刻的风、温度、湿度、气压和陆面状态是什么
 ```
 
-移动加密区会改变地理位置，因此后两层都必须重新生成。
+加密区一旦移动，地理位置就变了，因此静态文件和初值文件都必须重新制作。
 
-## 四种网格路线
+## MPAS 网格从哪里来
 
-MPAS 的常见选择是：
+常见做法有四种：
 
-1. 下载准均匀全球网格：最简单，没有区域中心；
-2. 下载全球变分辨率网格并旋转加密区：本课的北京方案；
-3. 用 MPAS-Tools（生成、变换和检查 MPAS 网格的工具集合）及其中调用的 JIGSAW，从
-   “期望分辨率随位置如何变化”的密度函数生成新网格；
-4. 从全球网格裁剪有限区域，并另外制作随时间变化的侧边界条件。
+1. 下载官方的准均匀全球网格。最省事，但没有所谓的“区域中心”；
+2. 下载官方的全球变分辨率网格，再把加密区旋转到目标区域。本课采用这种办法；
+3. 使用 MPAS-Tools 网格工具，其中会调用 JIGSAW 网格生成器，根据“各处希望使用多大
+   分辨率”重新生成网格；
+4. 从全球网格裁出有限区域，并另外制作随时间变化的侧边界条件。
 
-SCVT 是 spherical centroidal Voronoi tessellation，即球面质心 Voronoi 剖分；它是
-MPAS 网格的数学类型。JIGSAW 是高级网格生成器。第一次学习不需要自己生成 SCVT，先旋转
-官方已收敛的网格，可以把“网格生成质量”和“天气初始化错误”分开。
+第 3 课已经介绍过球面质心 Voronoi 剖分（SCVT）。第一次接触 MPAS，没有必要从数学
+网格生成开始。先旋转
+一张官方已经检查过的网格，更容易分清问题究竟出在网格本身，还是出在气象资料初始化。
 
-## 为什么选择 92–25 km 网格
+## 为什么先用 92—25 km 网格
 
-官方 `x4.163842` 有 163842 个 cell，全球背景约 92 km、加密中心约 25 km，加密区跨度
-约 60°。`x4` 表示粗细分辨率大约变化四倍，`163842` 是全球 cell 总数，并不是
-`e_we × e_sn`。
+官方 `x4.163842` 网格共有 163842 个网格单元：全球背景分辨率约 92 km，加密中心约 25 km，
+加密区大约横跨 60°。名称中的 `x4` 表示粗区与细区的分辨率相差约四倍，`163842` 表示
+全球网格单元总数，不是 WRF 中的 `e_we × e_sn`。
 
-下图颜色是 `6371 km × sqrt(areaCell)`，只是根据单元面积构造的局地尺度代理，不等于
-官方“名义网格间距”的严格定义。点越密、颜色越暗，cell 越小。
+下图颜色使用 `6371 km × sqrt(areaCell)` 计算。它只根据单元面积估算局地尺度，并不等于
+官方给出的严格名义网格间距。点越密、颜色越暗，说明当地网格单元越小。
 
-![旋转到北京后的 92–25 km 网格；颜色为 cell 面积尺度代理](images/beijing_mesh_resolution.png)
+![旋转到北京后的 92—25 km 网格；颜色表示按网格单元面积估算的当地尺度](images/beijing_mesh_resolution.png)
 
-## 操作一：下载并旋转网格
+## 第一步：下载网格并把加密区转到北京
 
-前置条件是已完成第 1–2 课，且能使用 `curl`、Git、Make、项目 netCDF 和含
-NumPy/netCDF4/Matplotlib 的 Python。以下命令从仓库根目录运行，会下载约 122 MB 的
-压缩包，并在 `work/` 中保留原网格和旋转网格：
+请先完成第 1、2 课，并确认系统可以使用 `curl`、Git、Make、项目自带的 netCDF，以及
+装有 NumPy、netCDF4、Matplotlib 的 Python。以下命令从仓库根目录运行，会下载约
+122 MB 的压缩包，并把原网格和旋转后的网格都留在 `work/` 中：
 
 ```bash
 ./prepare_beijing_vr_mesh.sh
 ```
 
-脚本还会获取并编译 MPAS-Tools 的 `grid_rotate`。默认固定在 MPAS-Tools 2.1.0 的提交
-`be1954cf369ae0e3aad06cda7283a15f7cb1325e`，并打印解析后的提交号；换机不会悄悄跟随
-`main` 漂移。只有明确要验证其他版本时才覆盖它：
+脚本还会下载并编译 MPAS-Tools 中的 `grid_rotate` 网格旋转程序。默认使用 MPAS-Tools
+2.1.0 的提交 `be1954cf369ae0e3aad06cda7283a15f7cb1325e`，运行时会打印实际提交号。这样
+换一台机器重做，也不会因为主分支更新而得到另一套结果。只有确实需要试验其他版本时，
+才覆盖默认版本：
 
 ```bash
 ./prepare_beijing_vr_mesh.sh --mpas-tools-revision TAG_OR_COMMIT
 ```
 
-`grid_rotate` 读取的不是模式 namelist，而是工作目录中的 `namelist.input`：
+`grid_rotate` 不读取模式的 namelist，而是读取当前工作目录中的 `namelist.input`：
 
 ```fortran
 &input
@@ -71,23 +71,23 @@ NumPy/netCDF4/Matplotlib 的 Python。以下命令从仓库根目录运行，会
 /
 ```
 
-前两项选中官方网格原来位于 `(0°, 0°)` 的加密中心，后两项把它移到北京。最后一项是
-绕该参考点的鸟瞰旋转；圆形加密区保持 0 即可，非圆形加密区可用它调整朝向。原文件不会
-被修改，输出为：
+前两项指出原网格的加密中心在 `(0°, 0°)`；中间两项把这个中心移到北京；最后一项控制
+以参考点为中心的逆时针旋转角度。圆形加密区设为 0 即可，非圆形加密区则可以用它调整
+朝向。脚本不会改动原文件，结果写到：
 
 ```text
 work/beijing_92-25km/beijing.x4.163842.grid.nc
 ```
 
-## 操作二：验收旋转结果
+## 第二步：确认网格确实转到了北京
 
-脚本当前应打印类似：
+脚本结束时应打印类似结果：
 
 ```text
 nearest cell=..., distance=10.26 km, area scale=20.28 km
 ```
 
-再检查维度并绘图：
+再检查网格维度，并画出局地分辨率分布：
 
 ```bash
 local/io-stack/bin/ncdump -h work/beijing_92-25km/beijing.x4.163842.grid.nc \
@@ -98,29 +98,30 @@ python tools/plot_mesh_resolution.py \
   --output work/beijing_92-25km/beijing_mesh_resolution.png
 ```
 
-预期 `nCells=163842`，最近 cell 距北京约 10 km。面积尺度约 20 km 而网格名称写 25 km
-并不矛盾：两者采用不同的几何尺度定义，前者只是 `sqrt(areaCell)` 代理。
+预期结果是 `nCells=163842`，最近的网格单元中心距北京约 10 km。按面积计算的当地尺度约 20 km，
+而网格名称写的是 25 km，两者并不矛盾：名称采用名义网格间距，脚本使用的只是
+`sqrt(areaCell)` 这一面积尺度估算。
 
-## 为什么 graph 分区可以复用
+## 网格转动以后，为什么分区文件还能用
 
-把每个 cell 看成图节点，把相邻关系看成图的边：
+可以把每个网格单元当作图中的一个节点，把两个相邻单元之间的关系当作连线：
 
-- `x4.163842.graph.info` 保存整张 cell 邻接图；
-- `x4.163842.graph.info.part.N` 把图划给 `N` 个 MPI task；
-- `N` 必须与 `mpiexec -n N` 完全一致。
+- `x4.163842.graph.info` 保存所有网格单元的邻接关系；
+- `x4.163842.graph.info.part.N` 把这些网格单元分给 `N` 个 MPI 进程；
+- 文件名中的 `N` 必须和 `mpiexec -n N` 完全一致。
 
-网格旋转改变 `latCell/lonCell`、三维球面坐标、科氏参数和 edge 地理方向，但没有改变
-“哪个 cell 与哪个 cell 相邻”。所以原网格的 `graph.info` 和 `.part.N` 可以复用，而
-原来的 `static.nc`、`init.nc` 和预报输出不能复用。
+旋转网格会改变 `latCell/lonCell`、球面三维坐标、科氏参数以及边的地理方向，却没有
+改变“谁和谁相邻”。因此，原来的 `graph.info` 和 `.part.N` 仍可使用；原来的
+`static.nc`、`init.nc` 和预报输出则与旧地理位置绑定，不能继续使用。
 
-官方包已经提供多个常用划分，先查看而不是重新生成：
+官方压缩包已经带有若干常用进程数的分区文件，先查看现有文件：
 
 ```bash
 ls work/beijing_92-25km/x4.163842.graph.info.part.*
 ```
 
-只有所需任务数不在列表中时才需要 METIS。例如系统已经另外安装 `gpmetis` 后，可生成
-64-way 划分：
+只有所需进程数不在列表中时，才需要用 METIS 图划分软件重新生成。例如系统另行安装了
+`gpmetis`，可用下面的命令制作 64 进程分区：
 
 ```bash
 command -v gpmetis
@@ -129,19 +130,20 @@ gpmetis -minconn -contig -niter=200 x4.163842.graph.info 64
 cd ../..
 ```
 
-本仓库的安装脚本目前不安装 METIS；不要把上面的命令当作默认环境必然可用。
+本仓库的安装脚本目前不安装 METIS，也不会默认提供 `gpmetis` 命令。
 
-## 操作三：为旋转网格生成 static
+## 第三步：重新制作北京网格的静态文件
 
-静态插值的数据流是：
+静态插值需要旋转后的网格和 WPS 地理资料：
 
 ```text
 beijing.grid.nc + WPS_GEOG
-              ↓ init_atmosphere_model（仅 1 个 MPI task）
+              ↓ init_atmosphere_model（只用 1 个 MPI 进程）
 beijing.static.nc
 ```
 
-先确认共享资料的具体 tile 目录可进入，而不只是能看到顶层目录：
+不要只看见共享资料顶层目录就以为权限没有问题。先检查所需地形分块文件（tile）的索引
+能否真正读取：
 
 ```bash
 GEOG_DIR="${GEOG_DIR:-/eds/shared/dm/WPS_GEOG}"
@@ -149,7 +151,7 @@ namei -l "$GEOG_DIR/topo_gmted2010_30s/index"
 test -r "$GEOG_DIR/topo_gmted2010_30s/index"
 ```
 
-有权限后运行：
+确认有权限后，再运行：
 
 ```bash
 GEOG_DIR="$GEOG_DIR" ./generate_beijing_vr_static.sh
@@ -177,37 +179,42 @@ with Dataset(path) as ds:
 PY
 ```
 
-`ter`、`landmask`、`ivgtyp` 和 `isltyp` 分别抽查地形、陆海掩膜、主植被类和主土壤类。
-只有 finished 标记、零 error、零 critical error、正确 cell 数和关键字段都通过，才算 static
-成功；单凭文件存在可能只是程序中途留下的残缺文件。
+这里抽查的 `ter`、`landmask`、`ivgtyp`、`isltyp`，分别代表地形、陆海掩膜、主要植被类型
+和主要土壤类型。日志出现完成标志、普通错误数为 0、严重错误数为 0、网格单元数正确，而且
+关键字段没有缺测和非有限值，才算真正成功。单看文件是否存在并不可靠，因为程序中途退出
+也可能留下残缺文件。
 
-静态阶段必须串行运行。脚本为最小 25 km 教学案例把三个超采样参数都显式设为 1，以限制
-取样和运行成本；这是一项教学选择，不是所有网格的最佳值。三者职责不同：
+静态插值必须串行运行。为控制这个 25 km 教学案例的取样量和运行时间，脚本把三个超采样
+参数都明确设为 1。这只是教学设置，不代表所有网格都应该这样选：
 
-- `config_supersample_factor`：MODIS 最大雪反照率和月反照率；
-- `config_lu_supersample_factor`：土地利用分类；
-- `config_30s_supersample_factor`：30 秒地形、土壤分类及 FPAR 植被比例等。
+- `config_supersample_factor`：用于 MODIS 卫星反照率资料，包括最大雪反照率和逐月反照率；
+- `config_lu_supersample_factor`：用于土地利用分类；
+- `config_30s_supersample_factor`：用于 30 秒地形、土壤分类和吸收光合有效辐射比例
+  （FPAR）等资料。
 
-超采样是从高分辨率 tile 中取更多子样本，不会把 25 km 动力网格变成 30 秒网格。
-MPAS 8.4.2 的 `config_supersample_factor` 默认值是 3，另外两项默认 1；正式试验若关心反照率
-或复杂下垫面，应比较更高取样因子对 static 场和耗时的影响，而不是机械沿用本例。
+“超采样”是指在高分辨率地理资料中多取一些子样本，它不会把 25 km 的动力网格变成
+30 秒网格。MPAS 8.4.2 中，`config_supersample_factor` 默认是 3，另外两项默认是 1。
+正式试验如果关注反照率或复杂下垫面，应比较较高取样因子对静态场和运行时间的影响，
+不要直接照搬本例。
 
-> 当前验证状态（2026-10-16）：北京网格旋转已经成功；本站默认的
-> `/eds/shared/dm/WPS_GEOG` 顶层可见，但当前账号不能读取 `topo_gmted2010_30s/index`，因此 static
-> 生成尚未完成。需要共享资料管理员授予只读和目录进入权限。本文不把该步骤写成已成功。
+> 当前验证情况（2026-10-16）：北京网格已经成功旋转。当前服务器默认的
+> `/eds/shared/dm/WPS_GEOG` 顶层目录可以看到，但当前账号无法读取
+> `topo_gmted2010_30s/index`，因此尚未生成静态文件。需要共享资料管理员授予目录进入和
+> 文件只读权限；在此之前，本机不能继续生成 `static` 文件。
 
-## static 之后还缺什么
+## 有了静态文件，还不能马上预报
 
-目前 `run_beijing_case.sh` 硬编码的是 `x1.10242` 基线网格，**不能**用来运行这张 x4
-北京网格。权限解决后，完整 VR 预报还需要单独完成：
+目前的 `run_beijing_case.sh` 专门为 `x1.10242` 的 240 km 教学网格编写，不能直接拿来运行
+这张北京 `x4.163842` 网格。权限问题解决后，还要完成下面几步：
 
-1. 复用第 4 课的 `FILE:*`，以北京 `static.nc` 为输入生成新的 `init.nc`；
-2. 在 `streams.init_atmosphere` 中把 input/output 指向北京 static/init 文件；
-3. 用存在的 `.part.N` 运行气象场插值和模式积分；
-4. 在 `namelist.atmosphere` 中按最细区域设置时间步和混合尺度；
-5. 在 `streams.atmosphere` 中指向北京 init 文件并设置输出频率。
+1. 复用第 4 课制作的 `FILE:*` 气象中间文件，以北京 `static.nc` 为输入，生成新的
+   `init.nc`；
+2. 修改 `streams.init_atmosphere`，让输入和输出分别指向北京的静态文件和初值文件；
+3. 选择现有的 `.part.N`，用相同数量的 MPI 进程做气象场插值和模式积分；
+4. 根据最细网格设置 `namelist.atmosphere` 中的时间步长和混合尺度；
+5. 修改 `streams.atmosphere`，指向北京初值文件，并设置所需输出间隔。
 
-关键模式参数的起始值为：
+可先从下面这组模式参数起步：
 
 ```fortran
 &nhyd_model
@@ -221,29 +228,32 @@ MPAS 8.4.2 的 `config_supersample_factor` 默认值是 3，另外两项默认 1
 /
 ```
 
-`config_dt≈5–6 × 最细公里数` 只是经验起点；输出间隔应能被时间步整除。CFL（库朗数）
-衡量一个时间步内信息跨越多少个网格尺度，最终要根据 CFL、速度极值和日志稳定性决定
-是否减小时间步。`config_len_disp` 使用最细名义间距，而不是全球平均
-92 km。计划中的 25 km VR 基线应先沿用 `mesoscale_reference` 的积云参数化，不能因为
-图看起来细就假定深对流已被显式解析。
+“时间步秒数约为最细网格公里数的 5—6 倍”只能当作起始经验，输出间隔还必须能被时间步
+整除。CFL（库朗数）反映一个时间步内信息能跨过多少个网格尺度，最终应结合 CFL、最大
+风速和日志中的稳定性表现，决定是否缩短时间步。`config_len_disp` 应采用最细处的名义
+间距 25 km，不能用全球背景区的 92 km。
 
-## 本课验收
+计划中的 25 km 变分辨率教学试验，应先继续使用 `mesoscale_reference` 物理方案中的积云
+参数化。地图看起来更细，并不等于深对流已经可以完全显式解析。
 
-- 已生成 163842-cell 的北京旋转网格，最近 cell 距北京约 10 km；
-- 能解释 `.part.N` 中的 N 与 MPI task 数的关系；
-- 能解释为何 graph 分区可复用而 static 不可复用；
-- static 需要 finished、零 error/critical error、`nCells=163842` 和关键静态字段共同验收；
-  当前机器因权限尚未通过此门；
-- 不声称已经完成北京 VR 初值或预报。
+## 做完以后怎样验收
 
-## 费曼复述
+- 已生成包含 163842 个网格单元的北京旋转网格，最近单元中心距北京约 10 km；
+- 能说清 `.part.N` 中的 `N` 为什么必须等于 MPI 进程数；
+- 能说清为什么网格分区文件可以复用，而静态文件不能复用；
+- 静态文件必须同时通过完成标志、零错误、`nCells=163842` 和关键字段检查；当前机器仍因
+  共享资料权限未能通过这一关；
+- 知道当前只完成了网格旋转，北京变分辨率初值和预报还没有完成。
 
-试着把网格想成转动一只已经画好多边形的足球：为什么转动后邻居名单不变，山地和科氏
-参数却变了？为什么最细区只占一部分，全球时间步仍由它控制？如果能用“几何层、地表层、
-天气层”分别回答，就掌握了 MPAS 变分辨率网格初始化的核心。
+## 合上教程，试着自己讲一遍
 
-## 参考
+把 MPAS 网格想成一只已经画好多边形的足球。转动足球以后，为什么每个多边形的邻居没有
+改变，地形和科氏参数却必须重算？为什么加密区只占全球的一部分，整个模式的时间步仍受
+最细网格限制？
 
-- [官方 MPAS-A 网格列表](https://www2.mmm.ucar.edu/projects/mpas/site/downloads/meshes.html)
-- [官方旋转与图划分说明](https://www2.mmm.ucar.edu/projects/mpas/mpas_website/build/html/users_guide/preparing_meshes.html)
+
+## 参考资料
+
+- [MPAS-A 官方网格列表](https://www2.mmm.ucar.edu/projects/mpas/site/downloads/meshes.html)
+- [官方网格旋转与图划分说明](https://www2.mmm.ucar.edu/projects/mpas/mpas_website/build/html/users_guide/preparing_meshes.html)
 - [官方初始化 namelist 参数](https://www2.mmm.ucar.edu/projects/mpas/site/documentation/users_guide/appA_init_namelist.html)
