@@ -1,4 +1,4 @@
-# 第 4 课：理解 MPAS 网格并设计北京案例
+# 第 3 课：理解 MPAS 网格并设计北京案例
 
 ## “北京为中心”在 MPAS 中是什么意思
 
@@ -54,3 +54,9 @@ ls FILE:*
 - [MPAS-A 官方网格下载与说明](https://www2.mmm.ucar.edu/projects/mpas/mpas_website/build/html/access_code/meshes.html)
 - [官方网格准备指南](https://www2.mmm.ucar.edu/projects/mpas/mpas_website/build/html/users_guide/preparing_meshes.html)
 - [官方真实资料初始化流程](https://www2.mmm.ucar.edu/projects/mpas/site/documentation/users_guide/running.html)
+
+## 费曼检查
+
+试着向一个 WRF 用户解释：`x1.10242` 中的 10242 为什么不是 `e_we × e_sn`？因为它是
+覆盖球面的 cell 总数，没有规则行列。为什么全球 240 km 案例仍能提取北京？因为北京
+落在某个全球 cell 中；“没有北京中心”不等于“没有北京”。

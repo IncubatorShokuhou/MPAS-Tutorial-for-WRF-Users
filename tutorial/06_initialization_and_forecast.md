@@ -1,4 +1,4 @@
-# 第 5 课：从 GFS 生成初值并运行 24 小时预报
+# 第 6 课：从 GFS 生成初值并运行 24 小时预报
 
 ## 两次“初始化”不要混淆
 
@@ -68,3 +68,9 @@ NTASKS=16 ./run_beijing_case.sh all
 ## 参考
 
 - [MPAS-A 官方真实资料初始化与运行指南](https://www2.mmm.ucar.edu/projects/mpas/site/documentation/users_guide/running.html)
+
+## 费曼检查
+
+为什么 `static.nc` 能跨日期复用，而 `init.nc` 不能？前者描述固定地表与同一张网格，
+后者包含具体起报时刻的大气和陆面状态。为什么 GFS 有几十个等压层，MPAS 却能用 55
+层？初始化器做了垂直坐标转换，输入层数与模式层数无需相同，但必须分别配置正确。

@@ -1,5 +1,11 @@
 # 第 1 课：用 GCC/GFortran 从源码编译 MPAS-A
 
+## 先用一句人话讲明白
+
+这一课不是“得到一个 MPAS 程序”，而是得到两个共享同一数值框架的程序：
+`mpas_init_atmosphere` 负责把外部资料变成模式状态，`mpas_atmosphere` 负责积分。类比
+WRF，前者覆盖了部分 WPS/real.exe 职责，后者才接近 `wrf.exe`。
+
 本项目以 MPAS-Atmosphere 8.4.2 为基线。安装顺序是 GCC/G++/GFortran → OpenMPI → zlib/HDF5 → netCDF-C/Fortran → Parallel-NetCDF → PIO → MPAS。除编译器外，其余组件都由脚本从源码构建，避免混用系统 MPI、Conda 库和不同编译器 ABI。
 
 ## 为什么暂时不编译 WPS
@@ -43,3 +49,11 @@ ls local/mpas-8.4.2/bin/{mpas_atmosphere,mpas_init_atmosphere}
 ```
 
 不要在安装时激活会覆盖 `PATH` 或 `LD_LIBRARY_PATH` 的 Conda MPI 环境。
+
+## 费曼检查
+
+- 为什么换机器时必须连 MPI 和 I/O 库一起重编？因为 Fortran 模块和并行库 ABI 必须
+  来自同一工具链，仅复制 executable 并不可靠。
+- 为什么有两个 MPAS executable？初始化和时间积分是两个独立 core，不是 debug/release
+  两个版本。
+- 怎样证明编译成功？不仅看文件存在，还要检查其动态链接库来自本项目的 `local/`。

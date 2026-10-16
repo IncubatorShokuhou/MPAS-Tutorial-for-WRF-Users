@@ -1,4 +1,4 @@
-# 第 7 课：正确设置北京变分辨率网格
+# 第 8 课：正确设置北京变分辨率网格
 
 ## 与 WRF 的根本差别
 
@@ -18,6 +18,8 @@ edge 方向已经写在 `grid.nc` 中，模式只是读取它。
 官方 `x4.163842` 有 163842 个 cell，背景约 92 km、加密中心约 25 km，加密区跨度
 约 60°。它比 240 km 教学网格有意义，又不会立刻进入百万级单元。`x4` 表示约四倍
 分辨率变化，`163842` 是 cell 总数；文件名不是 WRF 的格点尺寸声明。
+
+![旋转到北京后的变分辨率网格](images/beijing_mesh_resolution.png)
 
 ## 把加密中心移动到北京
 
@@ -103,3 +105,9 @@ gpmetis -minconn -contig -niter=200 x4.163842.graph.info 64
 
 - [官方 MPAS-A 网格列表](https://www2.mmm.ucar.edu/projects/mpas/site/downloads/meshes.html)
 - [官方旋转与图划分说明](https://www2.mmm.ucar.edu/projects/mpas/mpas_website/build/html/users_guide/preparing_meshes.html)
+
+## 费曼检查
+
+旋转网格像转动一个已经画好经纬网的足球：多边形邻居没变，所以图分区能复用；每块
+多边形落到的山地、海洋和科氏参数变了，所以 static 和 init 必须重做。若你能解释为何
+时间步看北京最细区而不是全球平均分辨率，就掌握了变分辨率积分的基本约束。

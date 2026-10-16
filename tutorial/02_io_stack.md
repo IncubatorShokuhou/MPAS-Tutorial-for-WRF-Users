@@ -1,4 +1,10 @@
-# 编译 MPAS 完整 I/O 依赖栈
+# 第 2 课：编译 MPAS 完整 I/O 依赖栈
+
+## 先用一句人话讲明白
+
+MPI 是多进程运输系统，HDF5/netCDF/PnetCDF 是文件格式与并行读写层，PIO 是 MPAS
+调度这些 I/O 后端的上层。它们不是五选一，而是分层协作；这类似 WRF 同时依赖 MPI、
+netCDF 和底层压缩库。
 
 MPAS 不只依赖 Parallel-NetCDF。常见的完整构建还需要 MPI、zlib、HDF5、
 netCDF-C、netCDF-Fortran 和 PIO。仓库根目录的 `install_io_stack.sh` 会按依赖
@@ -62,3 +68,9 @@ pnetcdf-config --all
 
 配置 MPAS 时把 `CMAKE_PREFIX_PATH` 指向此统一前缀，并启用 PIO。不要混用系统
 MPI 编译的 HDF5/netCDF；即使能链接，也可能在运行时崩溃。
+
+## 费曼检查
+
+如果 `mpifort` 来自系统 OpenMPI，而 `libnetcdff.so` 由本项目 OpenMPI 构建，为什么危险？
+因为两边可能采用不同 MPI ABI。能够链接只证明符号名字存在，不证明通信对象的内存布局
+兼容。用 `which mpifort`、`nf-config --flibs` 和 `ldd` 把这条依赖链讲清楚后再进入下一课。

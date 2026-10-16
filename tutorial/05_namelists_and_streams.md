@@ -1,4 +1,4 @@
-# 第 8 课：系统理解 MPAS namelist 与 streams
+# 第 5 课：系统理解 MPAS namelist 与 streams
 
 ## 三种配置文件各管什么
 
@@ -116,3 +116,9 @@ history 和 diagnostics 的 `output_interval` 分别控制输出频率；其变�
 完整选项应以当前版本自动生成的默认 namelist 和
 [官方 Appendix B](https://www2.mmm.ucar.edu/projects/mpas/site/documentation/users_guide/appB_model_namelist.html)
 为准，不要直接套用旧版本博客中的参数。
+
+## 费曼检查
+
+把配置想成餐厅：namelist 是烹饪方法，streams 是进货单和出菜单，`stream_list` 是每份
+菜单包含哪些菜。修改 `output_interval` 为什么不在 namelist？因为它改变的是 I/O 闹钟，
+不是动力过程。修改 physics suite 为什么不能只改 streams？因为它改变实际计算方案。

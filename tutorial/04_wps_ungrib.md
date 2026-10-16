@@ -1,4 +1,4 @@
-# 用 WPS `ungrib` 为 MPAS 解码 GFS GRIB2
+# 第 4 课：用 WPS `ungrib` 为 MPAS 解码 GFS GRIB2
 
 ## WPS 在 MPAS 流程中的位置
 
@@ -101,3 +101,9 @@ MPAS `init_atmosphere` 教程。
 
 - [WRF 官方编译文档](https://www2.mmm.ucar.edu/wrf/site/documentation/users_guide/compiling.html)
 - [WPS 官方用户指南](https://www2.mmm.ucar.edu/wrf/site/documentation/users_guide/wps.html)
+
+## 费曼检查
+
+`ungrib` 是否知道最终 MPAS 网格？不知道。它只把 GRIB 字段翻译为带经纬度和层次信息
+的 intermediate 文件；真正的网格插值由下一步完成。因此更换 MPAS 网格时可以复用
+同一批 `FILE:*`，但更换 GFS 产品或 Vtable 时必须重新 ungrib。

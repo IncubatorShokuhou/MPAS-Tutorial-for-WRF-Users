@@ -1,45 +1,41 @@
-# MPAS Tutorial
+# MPAS-A Tutorial
 
-本仓库记录从源码编译 MPAS-Atmosphere、准备网格与 GFS 初始/边界条件、运行预报和分析输出的完整流程。
+面向熟悉 WRF、但从未使用 MPAS 的读者：从 GCC/GFortran 源码编译开始，完成 GFS
+真实资料预报、北京变分辨率网格和 Python/Cartopy 后处理。教程采用“人话解释 → WRF
+类比 → 实际命令 → 输出验收 → 费曼检查”的顺序。
 
-从[第 1 课：编译 MPAS](tutorial/01_compile_mpas.md)开始，或运行：
+## 推荐学习顺序
+
+| 课次 | 主题 | 学完能够回答 |
+|---|---|---|
+| [0](tutorial/00_wrf_to_mpas.md) | WRF 到 MPAS | 哪些知识能迁移，哪些直觉必须重建？ |
+| [1](tutorial/01_compile_mpas.md) | 编译 MPAS-A | 两个 executable 分别做什么？ |
+| [2](tutorial/02_io_stack.md) | 并行 I/O 栈 | 为什么不只依赖 PnetCDF？ |
+| [3](tutorial/03_grid_fundamentals.md) | 网格基础 | 为什么 namelist 里没有 `dx/e_we`？ |
+| [4](tutorial/04_wps_ungrib.md) | GFS 与 WPS | 为什么只需要 `ungrib`？ |
+| [5](tutorial/05_namelists_and_streams.md) | Namelist/streams | “怎么算”和“读写什么”如何分开？ |
+| [6](tutorial/06_initialization_and_forecast.md) | 初值与预报 | `grid/static/FILE/init` 如何连接？ |
+| [7](tutorial/07_output_and_beijing_timeseries.md) | 输出诊断 | `nCells/nEdges/nVertices` 如何取数？ |
+| [8](tutorial/08_variable_resolution_mesh.md) | 北京加密网格 | 如何设置真正的“北京中心”？ |
+| [9](tutorial/09_cartopy_visualization.md) | Cartopy | 如何正确投影非结构网格？ |
+
+## 最短可运行路径
 
 ```bash
 ./install_mpas.sh
-```
-
-安装脚本会从源码构建 OpenMPI、HDF5、netCDF、Parallel-NetCDF 和 PIO，
-再用 CMake 构建 MPAS 的预处理与预报程序。各部分也可单独执行：
-
-- `install_io_stack.sh`：完整并行 I/O 依赖栈；
-- `install_mpas.sh`：依赖栈和 MPAS 总入口；
-- `install_wps.sh`：WPS `ungrib` 与 GRIB2 依赖。
-
-编译完成后，从[第 4 课：理解 MPAS 网格并设计北京案例](tutorial/04_grid_and_beijing_case.md)
-开始真实预报案例，或直接准备案例目录：
-
-```bash
+./install_wps.sh -y
 ./prepare_beijing_case.sh
-```
-
-生成 WPS intermediate 文件后，可继续[第 5 课：初值和预报](tutorial/05_initialization_and_forecast.md)：
-
-```bash
-NTASKS=16 ./run_beijing_case.sh init
-NTASKS=16 ./run_beijing_case.sh forecast
-```
-
-预报完成后，从[第 6 课：输出与北京时序](tutorial/06_output_and_beijing_timeseries.md)
-开始后处理：
-
-```bash
+cd work/beijing_240km_2026101500 && ./ungrib.exe && cd ../..
+NTASKS=16 ./run_beijing_case.sh all
 python tools/analyze_beijing.py work/beijing_240km_2026101500
 ```
 
-进入北京加密实验前，阅读[第 7 课：网格配置](tutorial/07_mesh_configuration.md)和
-[第 8 课：namelist 与 streams](tutorial/08_namelists_and_streams.md)，然后生成
-92–25 km 北京中心网格：
+北京 92–25 km 网格：
 
 ```bash
 ./prepare_beijing_vr_mesh.sh
+./generate_beijing_vr_static.sh
 ```
+
+后一个命令要求当前账号能读取 `/eds/shared/dm/WPS_GEOG` 的数据子目录。构建物、输入
+资料和预报输出均位于 Git 忽略目录，可在换机后由脚本重建。
