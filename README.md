@@ -35,3 +35,11 @@ NTASKS=16 ./run_beijing_case.sh forecast
 ```bash
 python tools/analyze_beijing.py work/beijing_240km_2026101500
 ```
+
+进入北京加密实验前，阅读[第 7 课：网格配置](tutorial/07_mesh_configuration.md)和
+[第 8 课：namelist 与 streams](tutorial/08_namelists_and_streams.md)，然后生成
+92–25 km 北京中心网格：
+
+```bash
+./prepare_beijing_vr_mesh.sh
+```
