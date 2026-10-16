@@ -21,3 +21,10 @@
 ```bash
 ./prepare_beijing_case.sh
 ```
+
+生成 WPS intermediate 文件后，可继续[第 5 课：初值和预报](tutorial/05_initialization_and_forecast.md)：
+
+```bash
+NTASKS=16 ./run_beijing_case.sh init
+NTASKS=16 ./run_beijing_case.sh forecast
+```
