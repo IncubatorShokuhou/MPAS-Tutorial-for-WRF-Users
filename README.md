@@ -1,6 +1,6 @@
-# MPAS-A Tutorial
+# MPAS-A for WRF Users
 
-面向熟悉 WRF、但从未使用 MPAS 的读者：从 GCC/GFortran 源码编译开始，完成 GFS
+面向 **WRF 熟手、MPAS-A 初学者**：从 GCC/GFortran 源码编译开始，完成 GFS
 真实资料预报、北京变分辨率网格原理和 Python/Cartopy 后处理。教程采用“人话解释 → WRF
 类比 → 实际命令 → 输出验收 → 费曼检查”的顺序。
 
