@@ -1,0 +1,23 @@
+# Downloaded sources and build products
+/downloads/
+/build/
+/local/
+/logs/
+/src/
+/MPAS-Model/
+
+# Local credentials and machine-specific environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Forecast inputs and generated output
+/data/
+/work/
+/output/
+*.nc
+*.grib
+*.grib2
+log.*
