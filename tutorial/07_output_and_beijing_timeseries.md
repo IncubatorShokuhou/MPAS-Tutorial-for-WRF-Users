@@ -11,8 +11,23 @@
 
 ```bash
 test -s work/beijing_240km_2026101500/x1.10242.init.nc
-ls work/beijing_240km_2026101500/diag.*.nc
+ls -lh work/beijing_240km_2026101500/x1.10242.init.nc \
+  work/beijing_240km_2026101500/diag.2026-10-{15,16}_00.00.00.nc
 ```
+
+当前案例的真实终端输出如下。`init.nc` 是坐标和初始状态来源，两个 `diag` 分别是起报和
+F024 时刻；中间还有 7 个三小时时次，这里省略：
+
+```console
+$ ls -lh work/beijing_240km_2026101500/x1.10242.init.nc \
+>   work/beijing_240km_2026101500/diag.2026-10-{15,16}_00.00.00.nc
+-rw-r-----+ ...  11M ... diag.2026-10-15_00.00.00.nc
+-rw-r-----+ ...  11M ... diag.2026-10-16_00.00.00.nc
+-rw-r-----+ ... 173M ... x1.10242.init.nc
+```
+
+这些 NetCDF 是模式生成的结果，平时只读。需要换起报时间、输出间隔或变量清单时，应修改
+生成它们的 namelist/streams 配置并重新运行。
 
 如果你在第 3 课亲手画过网格，`work/venv-post` 已经建好了；否则，下面第一条命令会创建
 它。这个环境专门放后处理所需的 Python 包，不会影响编译 MPAS 时使用的库。重复执行创建
@@ -23,8 +38,18 @@ python3 -m venv work/venv-post
 source work/venv-post/bin/activate
 python -m pip install --upgrade pip
 python -m pip install numpy netCDF4 matplotlib
-python -c 'import numpy, netCDF4, matplotlib'
+python -c 'import numpy, netCDF4, matplotlib; print("Python post-processing imports: OK")'
 ```
+
+成功时最后一条只打印：
+
+```console
+$ python -c 'import numpy, netCDF4, matplotlib; print("Python post-processing imports: OK")'
+Python post-processing imports: OK
+```
+
+生成的 `work/venv-post/` 是可删除、可重建的本机环境，不应提交到 Git，也不要从另一台机器
+直接复制其中的二进制包；换机后重新创建并安装依赖。
 
 第 9 课还会在这里安装地图绘图库 Cartopy。以后重新打开终端，先运行
 `source work/venv-post/bin/activate`，再做后处理。
@@ -66,10 +91,40 @@ MPAS 的输出由输出流配置文件 `streams.atmosphere` 和变量清单 `str
 先查看配置和文件头，再决定读取哪个变量：
 
 ```bash
-grep -n 'output_interval' work/beijing_240km_2026101500/streams.atmosphere
+sed -n '1,35p' work/beijing_240km_2026101500/streams.atmosphere | \
+  grep -n 'output_interval'
 local/io-stack/bin/ncdump -h \
   work/beijing_240km_2026101500/diag.2026-10-15_00.00.00.nc | less
+local/io-stack/bin/ncdump -h \
+  work/beijing_240km_2026101500/diag.2026-10-15_00.00.00.nc | \
+  grep -E '^[[:space:]]*(Time =|nCells =|double (mslp|rainc|rainnc|u10|v10|t2m)\()'
 ```
+
+本案例中，与后文直接相关的真实内容是：
+
+```console
+$ sed -n '1,35p' work/beijing_240km_2026101500/streams.atmosphere | grep -n 'output_interval'
+16:                  output_interval="1_00:00:00" />
+21:        output_interval="6:00:00" >
+29:        output_interval="3:00:00" >
+
+$ local/io-stack/bin/ncdump -h \
+>   work/beijing_240km_2026101500/diag.2026-10-15_00.00.00.nc | \
+>   grep -E '^[[:space:]]*(Time =|nCells =|double (mslp|rainc|rainnc|u10|v10|t2m)\()'
+Time = UNLIMITED ; // (1 currently)
+nCells = 10242 ;
+double mslp(Time, nCells) ;
+double rainc(Time, nCells) ;
+double rainnc(Time, nCells) ;
+double u10(Time, nCells) ;
+double v10(Time, nCells) ;
+double t2m(Time, nCells) ;
+```
+
+第 21、29 行分别对应 history 的 6 小时和 diagnostics 的 3 小时输出；第 16 行是 restart
+的 1 天间隔。要永久改变间隔或变量清单，应修改版本控制中的生成脚本/模板后重新运行。
+案例目录里的 `streams.atmosphere` 会被运行脚本重新生成，临时手改可能在下次运行时被覆盖；
+`stream_list.atmosphere.*` 决定各流包含哪些变量。
 
 本例的 `diag` 文件没有重复写入 `latCell/lonCell`。绘图或提取站点时，应从同一张网格、
 并且网格单元顺序完全相同的 `init.nc` 或 `history` 文件读取坐标。也可以修改输出流，让
@@ -93,20 +148,41 @@ python tools/analyze_beijing.py work/beijing_240km_2026101500
 “大小相同、实际却是另一张网格”的误配。老文件若没有这两项信息，脚本只能检查网格
 单元数并发出警告，这时还应比较网格文件校验值。
 
-本例大致会得到：
+本例的实际输出如下。开头的警告说明 diagnostics 没有分桶计数器，并不表示这次短案例
+失败；若检测到累计量回卷，脚本会停止：
 
-```text
+```console
+$ python tools/analyze_beijing.py work/beijing_240km_2026101500
+WARNING: diagnostics omit i_rainc, i_rainnc; any detected bucket rollover will stop the analysis.
 cell index=3150, cell ID=3151, distance=130.1 km
-wrote .../beijing_nearest_cell.csv
-wrote .../beijing_nearest_cell.png
+wrote work/beijing_240km_2026101500/beijing_nearest_cell.csv
+wrote work/beijing_240km_2026101500/beijing_nearest_cell.png
 ```
 
 再检查生成的表格和图片：
 
 ```bash
-head -n 4 work/beijing_240km_2026101500/beijing_nearest_cell.csv
-test -s work/beijing_240km_2026101500/beijing_nearest_cell.png
+ls -lh work/beijing_240km_2026101500/beijing_nearest_cell.{csv,png}
+cut -d, -f1,2,3,4,5,6,7,12 \
+  work/beijing_240km_2026101500/beijing_nearest_cell.csv | head -n 3
 ```
+
+当前目录和 CSV 关键内容为：
+
+```console
+$ ls -lh work/beijing_240km_2026101500/beijing_nearest_cell.{csv,png}
+-rw-rw----+ ... 2.2K ... beijing_nearest_cell.csv
+-rw-rw----+ ... 116K ... beijing_nearest_cell.png
+
+$ cut -d, -f1,2,3,4,5,6,7,12 work/beijing_240km_2026101500/beijing_nearest_cell.csv | head -n 3
+time_utc,cell_index_zero_based,cell_id_one_based,cell_latitude_deg,cell_longitude_deg,distance_to_beijing_km,t2m_c,precip_since_previous_output_mm
+2026-10-15_00:00:00,3150,3151,40.92212560074218,115.65033397016501,130.07454583326108,7.0370694649071766,
+2026-10-15_03:00:00,3150,3151,40.92212560074218,115.65033397016501,130.07454583326108,13.949679289330902,0.0
+```
+
+CSV 和 PNG 都可以重新生成。换站点用 `--latitude/--longitude`，换文件名前缀用
+`--output-prefix`，有多个初值文件时用 `--grid-file`。若数值或图片不合适，应调整输入或
+参数后重跑脚本。
 
 `3150` 是从 0 开始的 Python 数组下标；在这份文件里，它恰好对应全局编号 `3151`。
 最近的网格单元中心距北京仍有约 130 km。这也提醒我们：240 km 网格适合跑通流程，却不
@@ -153,6 +229,17 @@ total = (rainc  + config_bucket_rainc  * i_rainc)
 find work/beijing_240km_2026101500 -maxdepth 1 -name 'diag.*.nc' | wc -l
 find work/beijing_240km_2026101500 -maxdepth 1 -name 'history.*.nc' | wc -l
 wc -l work/beijing_240km_2026101500/beijing_nearest_cell.csv
+```
+
+当前真实输出是：
+
+```console
+$ find work/beijing_240km_2026101500 -maxdepth 1 -name 'diag.*.nc' | wc -l
+9
+$ find work/beijing_240km_2026101500 -maxdepth 1 -name 'history.*.nc' | wc -l
+5
+$ wc -l work/beijing_240km_2026101500/beijing_nearest_cell.csv
+10 work/beijing_240km_2026101500/beijing_nearest_cell.csv
 ```
 
 应该看到以下结果：

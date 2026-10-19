@@ -93,6 +93,31 @@ grid/static/init 中的连接关系
 第 6 课使用的官方网格包已经带有 `.part.16`。只有所需进程数没有对应分区文件时，才要
 用 METIS 重新划分。静态地理资料插值采用串行运行，不需要 `.part.1`。
 
+### 现场检查分区文件
+
+可以在仓库根目录做一次只读检查：
+
+```bash
+CASE_DIR=work/beijing_240km_2026101500
+ls -lh "$CASE_DIR/x1.10242.graph.info.part.16"
+wc -l "$CASE_DIR/x1.10242.graph.info.part.16"
+awk 'NR==1{lo=hi=$1} {if($1<lo)lo=$1; if($1>hi)hi=$1} \
+     END{print "rank range:",lo,hi}' \
+  "$CASE_DIR/x1.10242.graph.info.part.16"
+```
+
+真实输出可压缩成三行：
+
+```text
+-rw-r----- ... 24K ... x1.10242.graph.info.part.16
+10242 .../x1.10242.graph.info.part.16
+rank range: 0 15
+```
+
+这次检查不会留下新文件。读者可以把 `NTASKS` 改成网格包已经提供的其他 N，但必须同时
+选中对应的 `.part.N`；不要编辑分区文件中的整数来“制造”新分区，那会破坏 cell 的
+负载分配和连续性。
+
 ## `namelist.init_atmosphere`：同一程序的两个阶段
 
 `config_init_case` 是初始化任务编号，说明这次要制作哪类文件：
@@ -122,8 +147,8 @@ grid/static/init 中的连接关系
 - `vertical_grid`、`met_interp`、`input_sst`、`frac_seaice` 分别控制垂直网格、气象场插值、
   周期海温读取和海冰处理，这一步都不做。
 
-下面只摘录本阶段最关键的设置，不能单独复制成完整 namelist。实际运行时请让
-`generate_beijing_vr_static.sh` 生成配置，避免漏掉输入输出和并行设置。
+下面只摘录本阶段最关键的设置，不能单独复制成完整 namelist。本课只读参数，不运行；
+第 8 课会首次介绍并调用 `generate_beijing_vr_static.sh`，由它生成完整配置。
 
 ```fortran
 &nhyd_model
@@ -171,6 +196,21 @@ streams 中负责网格输入和静态文件输出的两段如下。官方模板
 
 240 km 教学网格已经配有官方 `x1.10242.static.nc`，所以第 6 课会跳过阶段 A。第 8 课
 把加密网格旋转到北京以后，网格单元的经纬度发生变化，那时才真正运行这一步。
+
+### 当前基线已经有的文件
+
+对当前 240 km 基线而言，阶段 A 没有在本机重新执行；第 4 课的准备脚本直接解压了官方
+成果。目录中对应的是两个普通 NetCDF 文件：
+
+```text
+work/beijing_240km_2026101500/
+├── x1.10242.grid.nc     # 仅网格几何与拓扑，约 14 MiB
+└── x1.10242.static.nc   # 同一网格加静态地理场，约 19 MiB
+```
+
+这两个文件不是软链接，也不是脚本临时配置。跑基线时不要修改它们；只换起报日期时可以
+原样复用。若换成旋转后的北京网格，则必须从新的 `grid.nc` 生成新的 `static.nc`，不能
+为了省时间把这里的 x1 static 改名冒充。
 
 ### 阶段 B：`static.nc + FILE:<起报有效时刻>` 变成 `init.nc`
 
@@ -252,6 +292,10 @@ first-guess data` 确认实际层数；预留值不能小于它。
 虽然第 4 课生成了九个 `FILE:*`，这里的任务 7 只按照 `config_start_time` 读取 GFS f000
 对应的起报时刻文件。`config_stop_time`、`config_fg_interval` 和其余八个时次，要到
 任务 8、任务 9 才真正用上。
+
+第 6 课才会真正执行这一步，并紧接着展示终端输出、配置内容和新增文件。本课先记住：
+`static.nc` 与起报时刻的 `FILE:*` 是输入，`init.nc` 是输出；日期和资料间隔来自
+`case.env`，MPI 进程数由 `NTASKS` 决定。
 
 ## `namelist.atmosphere`：先把 240 km 教学算例跑稳
 
@@ -336,6 +380,9 @@ x1.10242.init.nc ──读取──> atmosphere_model
 写一份，所以 24 小时预报应得到 5 个 history、9 个 diagnostics，以及结束时刻的 1 个
 restart。这里不能简单拿 `24/输出间隔` 来计算文件数。
 
+第 6 课会展示这些模板展开后的真实文件名、数量和大小。这里只需分清：想改输出频率就改
+streams，想改输出变量就改 stream list；两件事都不属于 namelist 的职责。
+
 ## PIO 设置不等于输出设置
 
 `config_pio_num_iotasks` 设置参与读写的 MPI 进程数；设为 0 时，所有进程都参与。
@@ -352,14 +399,19 @@ restart。这里不能简单拿 `24/输出间隔` 来计算文件数。
 专用读写进程数和间隔，主要用于大规模计算时的性能调优。它们不决定输出哪些变量、文件
 叫什么或多久写一次；这些内容仍由 streams 控制。
 
-## 当心：运行脚本会重写配置文件
+## 运行脚本为什么会覆盖配置
 
-第 6 课每次运行 `run_beijing_case.sh init` 或 `forecast`，都会重新生成相应的 namelist
-和 streams。因此，案例目录里的这些文件可以拿来检查，但不要修改后又运行脚本，否则
-改动会被覆盖。
+第 6 课每次运行 `run_beijing_case.sh init` 或 `forecast`，都会重新生成 namelist 和
+streams，并把默认 stream list 链接到案例目录。基线案例可以直接使用这套做法。若要做
+敏感性试验，应另建案例目录，把配置和 stream list 都复制成普通文件，修改后直接用
+`mpiexec` 启动 MPAS；再次调用运行脚本会覆盖这些改动。目前脚本还没有“只生成配置、不
+启动模式”的选项。
 
-如果要做自己的敏感性试验，可先让脚本生成一遍配置，再手工修改，并直接调用对应的
-`mpiexec` 命令。后续教程还会把更多常用参数做成脚本选项。
+如果继续展开完整的 `streams.*`，还会看到文件名里保留着 `x1.40962` 的 IAU、UGWP 等
+条目。这些流都带有 `packages="..."` 条件，只有相应功能包启用时才会读写；当前
+`x1.10242` 基线没有启用它们，因此不是漏改网格名，也不需要为它们准备文件。读 streams
+时先看 `packages` 和 namelist 开关，再判断一个模板是否生效，不要见到陌生文件名就把
+整段 XML 删除。
 
 ## 开跑前照着这张清单核对
 

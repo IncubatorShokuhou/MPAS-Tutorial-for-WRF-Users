@@ -15,6 +15,25 @@ command -v gcc g++ gfortran cmake make curl tar git
 每个命令都应该返回一条路径。缺哪一个，就先请管理员安装哪一个，不要等到几个小时的
 编译中途才发现工具不全。
 
+### 这一步留下了什么
+
+在本机上，这组检查得到的是下面这些路径。你的 GCC 或 CMake 也可能装在 `/opt` 等其他
+位置；关键是八行都有结果。
+
+```text
+/usr/bin/gcc
+/usr/bin/g++
+/usr/bin/gfortran
+/usr/bin/cmake
+/usr/bin/make
+/usr/bin/curl
+/usr/bin/tar
+/usr/bin/git
+```
+
+`command -v` 只查询命令，本步不会生成文件。若某一行缺失，请先安装相应工具；编译器
+位于非标准目录时，可在稍后的安装命令中用 `--cc/--cxx/--fc` 指定完整路径。
+
 编译完成后，最重要的三个文件是：
 
 ```text
@@ -58,7 +77,8 @@ netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信�
 
 ## 开始安装
 
-在仓库根目录执行：
+在仓库根目录执行。下面三种写法是同一个步骤的三种选择，不要依次全跑一遍。第一次安装
+若希望逐项确认，就用交互方式：
 
 ```bash
 ./install_mpas.sh
@@ -84,6 +104,9 @@ netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信�
   --mpas-prefix /data/mpas/install --jobs 32
 ```
 
+后续教学脚本目前按仓库内的默认前缀 `local/io-stack`、`local/mpas-8.4.2` 查找程序。若准备
+逐课照做，建议先使用默认目录；采用上面的自定义前缀时，还需要同步调整案例脚本中的路径。
+
 若要指定编译器，可使用 `--cc`、`--cxx` 和 `--fc`，参数值写编译器的绝对路径。全部参数
 可用 `./install_mpas.sh --help` 查看。除编译器以外，不要让系统 MPI 或 Conda MPI 混入
 `PATH` 和 `LD_LIBRARY_PATH`。
@@ -93,6 +116,58 @@ netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信�
 `--run-tests`，还会
 运行依赖库自身的测试，所需时间会明显增加。若准备继续学习第 4 课，可以加
 `--with-wps`，同时安装 `ungrib.exe`。
+
+### 这一步留下了什么
+
+完整构建会打印很多 CMake 和 Make 信息，不必逐行照抄。真正值得盯住的是末尾的安装摘要。
+下面是已经成功安装过一次后，再次执行脚本时的末尾：
+
+```text
+I/O stack installation complete: .../MPAS_tutorial/local/io-stack
+MPAS v8.4.2 is already installed at .../MPAS_tutorial/local/mpas-8.4.2
+
+Installation complete.
+I/O stack:    .../MPAS_tutorial/local/io-stack
+MPAS source:  .../MPAS_tutorial/MPAS-Model
+MPAS install: .../MPAS_tutorial/local/mpas-8.4.2
+```
+
+第一次运行不会出现 `already installed`，而会看到许多 `Built target` 和 `Installing`；
+只要最后仍出现 `Installation complete`，并且下列可执行程序确实存在，就说明这一步完成。
+默认目录会变成下面这样：
+
+```text
+MPAS_tutorial/
+├── downloads/                 # 下载归档，可供重装复用
+├── build/                     # 临时编译树
+│   ├── io-stack/
+│   └── mpas-8.4.2-cmake-pio/
+├── MPAS-Model/                # v8.4.2 源码
+└── local/
+    ├── io-stack/
+    │   ├── bin/mpirun
+    │   ├── bin/mpifort
+    │   └── lib/               # MPI、HDF5、netCDF、PnetCDF、PIO 等库
+    └── mpas-8.4.2/
+        ├── bin/mpas_init_atmosphere
+        ├── bin/mpas_atmosphere
+        ├── lib/               # MPAS 核心共享库，运行时同样必需
+        └── share/MPAS/        # 默认 namelist、streams 和物理查找表
+```
+
+安装目录中的 namelist 是上游默认模板，开头看起来像这样：
+
+```fortran
+&nhyd_model
+    config_time_integration_order = 2
+    config_dt = 720.0
+    config_start_time = '2010-10-23_00:00:00'
+    config_run_duration = '5_00:00:00'
+/
+```
+
+这些默认日期、时间步和网格分区并不适合北京案例。后面要改的是复制到 `work/` 案例目录
+里的副本；不要直接修改 `local/` 下的安装模板，也不要手工改 `bin/` 中的二进制程序。
 
 ## 编译结束后不要急着往下走
 
@@ -115,6 +190,28 @@ ldd local/mpas-8.4.2/bin/mpas_atmosphere | grep -E 'local/io-stack|not found'
 
 不要只看最后一条编译命令是否返回 0。真正需要确认的是：程序启动时找到的 MPI 和 I/O
 库，确实是我们刚刚编译的这一套。
+
+### 这一步留下了什么
+
+本项目实测的关键输出如下。内存地址每次都会变化，所以不必逐字相同；路径落在当前项目
+的 `local/io-stack` 才是重点。
+
+```text
+.../MPAS_tutorial/local/io-stack/bin/mpirun
+.../MPAS_tutorial/local/io-stack/bin/mpifort
+mpirun (Open MPI) 4.1.8
+
+-rwxr-xr-x ... local/mpas-8.4.2/bin/mpas_atmosphere
+-rwxr-xr-x ... local/mpas-8.4.2/bin/mpas_init_atmosphere
+libnetcdf.so.22  => .../local/io-stack/lib/libnetcdf.so.22 (...)
+libpnetcdf.so.8  => .../local/io-stack/lib/libpnetcdf.so.8 (...)
+libmpi.so.40     => .../local/io-stack/lib/libmpi.so.40 (...)
+libhdf5.so.310   => .../local/io-stack/lib/libhdf5.so.310 (...)
+```
+
+这组命令只改变当前终端的环境变量，不会再生成文件。若出现 `not found`，要改的是
+`PATH`、`LD_LIBRARY_PATH` 或安装前缀；不要给缺失的 `.so` 文件随便建软链接。确认无误后，
+第 2 课会继续拆解这套 I/O 栈，第 4 课再安装或检查 WPS。
 
 ## 用自己的话讲一遍
 

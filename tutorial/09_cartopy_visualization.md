@@ -28,8 +28,18 @@ WRF 输出带有规则的二维下标，常用的画图程序可以直接沿着 
 ```bash
 source work/venv-post/bin/activate
 python -m pip install cartopy
-python -c 'import numpy, netCDF4, matplotlib, cartopy; print(cartopy.__version__)'
+python -c 'import numpy, netCDF4, matplotlib, cartopy; print("Cartopy environment: OK")'
 ```
+
+依赖都能导入时，最后一条的终端输出为：
+
+```console
+$ python -c 'import numpy, netCDF4, matplotlib, cartopy; print("Cartopy environment: OK")'
+Cartopy environment: OK
+```
+
+这里生成或更新的是 `work/venv-post/`，不会产生 MPAS 数据。这个环境只服务于后处理，
+也不需要提交到 Git。
 
 如果你跳过了第 7 课，请先按第 7 课的步骤建立 `work/venv-post`。UXarray 是一个专门处理
 非结构网格的可选 Python 库，本课脚本没有使用它，不必为了运行本例而安装。
@@ -38,14 +48,20 @@ Cartopy 第一次调用 50 m 分辨率的海岸线和国界时，可能会下载
 可用下面的命令查看缓存位置：
 
 ```bash
-python - <<'PY'
-import cartopy
-print(cartopy.config['data_dir'])
-PY
+python -c "import cartopy; print(cartopy.config['data_dir'])"
 ```
 
-计算节点如果不能联网，应先在联网节点触发一次下载，再把缓存复制到计算节点能够读取的
-目录。
+Cartopy 当前使用的地图资料缓存目录通常类似：
+
+```console
+$ python -c "import cartopy; print(cartopy.config['data_dir'])"
+/home/username/.local/share/cartopy
+```
+
+换机后路径可以不同，应以这条命令的实际输出为准。
+
+计算节点如果不能联网，可先在联网节点触发一次下载，把缓存复制到计算节点能读取的目录，
+再设置 `CARTOPY_DATA_DIR=/path/to/cartopy-data` 指向它。
 
 ## 第二步：先确认坐标和预报来自同一次试验
 
@@ -68,6 +84,15 @@ with Dataset(coord) as grid, Dataset(diag) as data:
 PY
 ```
 
+上述内嵌 Python 在当前文件上打印：
+
+```console
+same source: 32m2dhjr3k nCells = 10242
+```
+
+`32m2dhjr3k` 是这次生成的文件标识，每次案例都可能不同。换案例时应重新检查
+`file_id/parent_id`，脚本不会把它当成固定常量。
+
 这比只看文件名可靠。绘图脚本会自动再检查一次：只要文件带有这些标识却互不匹配，就会
 立即停止。老文件若没有 `file_id/parent_id`，脚本会发出警告，只检查 `nCells`；此时还
 应人工比较网格文件校验值。正式归档时，模式版本和配置文件也应一并保存。
@@ -78,10 +103,33 @@ PY
 python tools/plot_mpas_cartopy.py \
   work/beijing_240km_2026101500/x1.10242.init.nc \
   work/beijing_240km_2026101500/diag.2026-10-16_00.00.00.nc \
-  --output work/beijing_240km_2026101500/cartopy_t2m.png
+  --output work/beijing_240km_2026101500/cartopy_t2m-regression.png
 
-test -s work/beijing_240km_2026101500/cartopy_t2m.png
+test -s work/beijing_240km_2026101500/cartopy_t2m-regression.png
+ls -lh work/beijing_240km_2026101500/cartopy_t2m-regression.png
+file work/beijing_240km_2026101500/cartopy_t2m-regression.png
 ```
+
+本机已验证过的终端和文件输出是：
+
+```console
+$ python tools/plot_mpas_cartopy.py \
+>   work/beijing_240km_2026101500/x1.10242.init.nc \
+>   work/beijing_240km_2026101500/diag.2026-10-16_00.00.00.nc \
+>   --output work/beijing_240km_2026101500/cartopy_t2m-regression.png
+plotted 362 cells; wrote work/beijing_240km_2026101500/cartopy_t2m-regression.png
+
+$ ls -lh work/beijing_240km_2026101500/cartopy_t2m-regression.png
+-rw-rw----+ ... 646K ... work/beijing_240km_2026101500/cartopy_t2m-regression.png
+
+$ file work/beijing_240km_2026101500/cartopy_t2m-regression.png
+work/beijing_240km_2026101500/cartopy_t2m-regression.png: PNG image data, 1980 x 1440, 8-bit/color RGBA, non-interlaced
+```
+
+`work/.../cartopy_t2m-regression.png` 是可再生运行产物；`tutorial/images/beijing_cartopy_t2m.png`
+是教程中显示的已提交示例图。图里包含 2 米温度填色、海平面气压黑色等值线、10 米风箭头
+及其 `10 m s⁻¹` 标尺、北京星号、海岸线、国界、经纬网和有效时刻。要改区域可传
+`--extent W E S N`；要改变量、色阶或标题，则修改绘图脚本后重新生成。
 
 这张图对应世界协调时（UTC）2026-10-15 00 时起报后的第 24 小时，业务上常简写为 F024。
 填色是 2 米温度，黑线是海平面气压，箭头是 10 米风，星号标出北京。脚本结束时会打印
@@ -155,7 +203,7 @@ local/io-stack/bin/ncdump -h \
 
 - Python 环境能成功导入 NumPy、netCDF4、Matplotlib 和 Cartopy；
 - `init.file_id` 出现在 `diag.parent_id` 中，而且两个文件的 `nCells` 相同；
-- 成功生成非空的 `cartopy_t2m.png`，标题时刻为 2026-10-16 00 UTC；
+- 成功生成非空的 `cartopy_t2m-regression.png`，标题时刻为 2026-10-16 00 UTC；
 - 能确认这张图来自 240 km 教学预报，不是北京 25 km 加密预报；
 - 能解释为什么连续色斑不能拿来做守恒的降水收支计算。
 

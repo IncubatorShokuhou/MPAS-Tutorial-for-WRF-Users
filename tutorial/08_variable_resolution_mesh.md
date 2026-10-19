@@ -42,13 +42,45 @@ MPAS-A 的 `namelist.atmosphere` 里，你找不到一组能直接生成水平�
 
 ## 第一步：下载网格并把加密区转到北京
 
-请先完成第 1、2 课，并确认系统可以使用 `curl`、Git、Make、项目自带的 netCDF，以及
-装有 NumPy、netCDF4、Matplotlib 的 Python。以下命令从仓库根目录运行，会下载约
-122 MB 的压缩包，并把原网格和旋转后的网格都留在 `work/` 中：
+请先完成第 1、2 课，并确认系统可以使用 `curl`、Git、Make 和项目自带的 netCDF。NumPy、
+netCDF4、Matplotlib 已在第 7 课装进 `work/venv-post`，新终端要先激活它。以下命令从仓库
+根目录运行，会下载约 122 MB 的压缩包，并把原网格和旋转后的网格都留在 `work/` 中：
 
 ```bash
+source work/venv-post/bin/activate
 ./prepare_beijing_vr_mesh.sh
 ```
+
+省略编译器的逐行信息后，本机这一步的真实关键输出是：
+
+```console
+$ source work/venv-post/bin/activate
+$ ./prepare_beijing_vr_mesh.sh
+Using MPAS-Tools revision: be1954cf369ae0e3aad06cda7283a15f7cb1325e
+...
+nearest cell=151469, distance=10.256 km, area scale=20.28 km
+Rotated mesh: .../work/beijing_92-25km/beijing.x4.163842.grid.nc
+Graph partitions remain: .../work/beijing_92-25km/x4.163842.graph.info.part.*
+```
+
+这里的 `.../` 省略了因安装位置而异的仓库绝对路径，不代表相对路径或另一个文件。
+
+第一次运行后，新增内容分布在四个地方：
+
+```text
+MPAS_tutorial/
+├── downloads/x4.163842.tar.gz              # 官方压缩包，约 122 MiB
+├── src/MPAS-Tools/                          # 固定版本的源码与编译结果
+├── local/bin/grid_rotate                    # 网格旋转程序
+└── work/beijing_92-25km/
+    ├── x4.163842.grid.nc                    # 官方原始网格，约 214 MiB
+    ├── x4.163842.graph.info                 # 邻接图
+    ├── x4.163842.graph.info.part.*          # 官方分区文件
+    ├── namelist.input                       # 本次旋转参数
+    └── beijing.x4.163842.grid.nc            # 旋转后的网格，约 214 MiB
+```
+
+下载包和源码可以复用，`beijing.x4.163842.grid.nc` 才是本案例后续制作静态资料的网格输入。
 
 脚本还会下载并编译 MPAS-Tools 中的 `grid_rotate` 网格旋转程序。默认使用 MPAS-Tools
 2.1.0 的提交 `be1954cf369ae0e3aad06cda7283a15f7cb1325e`，运行时会打印实际提交号。这样
@@ -79,6 +111,20 @@ MPAS-A 的 `namelist.atmosphere` 里，你找不到一组能直接生成水平�
 work/beijing_92-25km/beijing.x4.163842.grid.nc
 ```
 
+脚本同时生成了下列关键配置。它由 `--latitude/--longitude` 参数写出，下次运行会覆盖；想
+换加密中心应改命令参数，不要只手改这个临时文件后又重新运行脚本：
+
+```console
+$ sed -n '1,8p' work/beijing_92-25km/namelist.input
+&input
+ config_original_latitude_degrees = 0.0
+ config_original_longitude_degrees = 0.0
+ config_new_latitude_degrees = 39.9042
+ config_new_longitude_degrees = 116.4074
+ config_birdseye_rotation_counter_clockwise_degrees = 0.0
+/
+```
+
 ## 第二步：确认网格确实转到了北京
 
 脚本结束时应打印类似结果：
@@ -97,6 +143,29 @@ python tools/plot_mesh_resolution.py \
   work/beijing_92-25km/beijing.x4.163842.grid.nc \
   --output work/beijing_92-25km/beijing_mesh_resolution.png
 ```
+
+当前网格和图片的真实检查结果为：
+
+```console
+$ local/io-stack/bin/ncdump -h work/beijing_92-25km/beijing.x4.163842.grid.nc | grep -E 'nCells =|nEdges =|nVertices ='
+nCells = 163842 ;
+nVertices = 327680 ;
+nEdges = 491520 ;
+
+$ python tools/plot_mesh_resolution.py \
+>   work/beijing_92-25km/beijing.x4.163842.grid.nc \
+>   --output work/beijing_92-25km/beijing_mesh_resolution.png
+selected 59042 of 163842 cells; wrote work/beijing_92-25km/beijing_mesh_resolution.png
+
+$ ls -lh work/beijing_92-25km/{x4.163842.grid.nc,beijing.x4.163842.grid.nc,beijing_mesh_resolution.png}
+-rw-r-----+ ... 214M ... beijing.x4.163842.grid.nc
+-rw-rw----+ ... 2.1M ... beijing_mesh_resolution.png
+-rw-r-----+ ... 214M ... x4.163842.grid.nc
+```
+
+原始网格、旋转网格和分辨率图分别是输入、核心派生数据和检查图。要换加密位置，就重新
+运行旋转脚本；要换绘图范围，则使用 `plot_mesh_resolution.py --extent W E S N`。检查图中
+暗色密集区围绕北京红色星号展开，色标表示面积尺度估算，不是地形或预报变量。
 
 预期结果是 `nCells=163842`，最近的网格单元中心距北京约 10 km。按面积计算的当地尺度约 20 km，
 而网格名称写的是 25 km，两者并不矛盾：名称采用名义网格间距，脚本使用的只是
@@ -117,16 +186,40 @@ python tools/plot_mesh_resolution.py \
 官方压缩包已经带有若干常用进程数的分区文件，先查看现有文件：
 
 ```bash
-ls work/beijing_92-25km/x4.163842.graph.info.part.*
+find work/beijing_92-25km -maxdepth 1 \
+  -name 'x4.163842.graph.info.part.*' -printf '%f\n' | sort -V
 ```
 
+当前压缩包实际提供的后缀为：
+
+```console
+$ find work/beijing_92-25km -maxdepth 1 -name 'x4.163842.graph.info.part.*' -printf '%f\n' | sort -V
+x4.163842.graph.info.part.12
+x4.163842.graph.info.part.16
+x4.163842.graph.info.part.24
+x4.163842.graph.info.part.32
+x4.163842.graph.info.part.48
+x4.163842.graph.info.part.64
+x4.163842.graph.info.part.96
+x4.163842.graph.info.part.128
+x4.163842.graph.info.part.192
+x4.163842.graph.info.part.256
+x4.163842.graph.info.part.384
+x4.163842.graph.info.part.512
+x4.163842.graph.info.part.768
+x4.163842.graph.info.part.1024
+```
+
+可以选择列表中已有的任务数，但**不能把 `.part.64` 重命名成 `.part.96`**：文件内容本身
+就是划分结果，不只是名字。需要新任务数时必须用 METIS 从 `graph.info` 重新划分。
+
 只有所需进程数不在列表中时，才需要用 METIS 图划分软件重新生成。例如系统另行安装了
-`gpmetis`，可用下面的命令制作 64 进程分区：
+`gpmetis`，可用下面的命令制作当前压缩包没有的 20 进程分区：
 
 ```bash
 command -v gpmetis
 cd work/beijing_92-25km
-gpmetis -minconn -contig -niter=200 x4.163842.graph.info 64
+gpmetis -minconn -contig -niter=200 x4.163842.graph.info 20
 cd ../..
 ```
 
@@ -179,6 +272,42 @@ with Dataset(path) as ds:
 PY
 ```
 
+上面是一组“权限恢复后应执行的验收命令”，不是本机已经获得的成功输出。当前实际运行在
+读取权限预检处立即结束：
+
+```console
+$ GEOG_DIR=/eds/shared/dm/WPS_GEOG ./generate_beijing_vr_static.sh
+Cannot read /eds/shared/dm/WPS_GEOG/topo_gmted2010_30s/index; request WPS_GEOG ACL/group access
+$ echo $?
+1
+```
+
+目录现状很明确：旋转网格存在，静态文件还没有生成。
+
+```console
+$ stat -c '%s bytes %n' work/beijing_92-25km/beijing.x4.163842.grid.nc
+224139172 bytes work/beijing_92-25km/beijing.x4.163842.grid.nc
+
+$ test -s work/beijing_92-25km/beijing.x4.163842.static.nc \
+>   || echo 'MISSING: beijing.x4.163842.static.nc'
+MISSING: beijing.x4.163842.static.nc
+```
+
+权限预检在写配置、启动 MPAS 之前就退出，因此这次不会生成 static 或新日志。当前目录中
+若还能看到旧的 namelist、streams 和日志，它们来自先前尝试，不能当作成功标志。权限通过
+后，脚本会重新生成配置，其中关键关系应为：
+
+```text
+config_geog_data_path = '/eds/shared/dm/WPS_GEOG/'
+config_static_interp = true
+config_vertical_grid = false
+input  stream: beijing.x4.163842.grid.nc
+output stream: beijing.x4.163842.static.nc
+```
+
+解决办法是请管理员授予目录进入和文件只读权限，或把 `GEOG_DIR` 指向一套完整、可读的
+WPS_GEOG。确认 `index` 和数据分块都能读取后，再重新运行脚本。
+
 这里抽查的 `ter`、`landmask`、`ivgtyp`、`isltyp`，分别代表地形、陆海掩膜、主要植被类型
 和主要土壤类型。日志出现完成标志、普通错误数为 0、严重错误数为 0、网格单元数正确，而且
 关键字段没有缺测和非有限值，才算真正成功。单看文件是否存在并不可靠，因为程序中途退出
@@ -196,11 +325,6 @@ PY
 30 秒网格。MPAS 8.4.2 中，`config_supersample_factor` 默认是 3，另外两项默认是 1。
 正式试验如果关注反照率或复杂下垫面，应比较较高取样因子对静态场和运行时间的影响，
 不要直接照搬本例。
-
-> 当前验证情况（2026-10-16）：北京网格已经成功旋转。当前服务器默认的
-> `/eds/shared/dm/WPS_GEOG` 顶层目录可以看到，但当前账号无法读取
-> `topo_gmted2010_30s/index`，因此尚未生成静态文件。需要共享资料管理员授予目录进入和
-> 文件只读权限；在此之前，本机不能继续生成 `static` 文件。
 
 ## 有了静态文件，还不能马上预报
 

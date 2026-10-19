@@ -31,13 +31,38 @@ netCDF-4/HDF5 和 PnetCDF 是两条可选路径，不是说同一份文件一定
 
 ## 单独安装 I/O 依赖
 
-系统需要预先装好 GCC、G++、GFortran、CMake、Make、curl 和 tar。然后在仓库根目录执行：
+系统需要预先装好 GCC、G++、GFortran、CMake、Make、curl 和 tar。正式编译前，先在仓库
+根目录做一次预演（dry run）：
+
+```bash
+./install_io_stack.sh --dry-run
+```
+
+它先确认 GCC、G++、GFortran 命令存在，再打印计划；不会下载、创建目录或编译。本机实测
+输出如下：
+
+### 这一步留下了什么
+
+```text
+MPAS I/O stack configuration
+  prefix:    .../MPAS_tutorial/local/io-stack
+  downloads: .../MPAS_tutorial/downloads
+  builds:    .../MPAS_tutorial/build/io-stack
+  compilers: /usr/bin/gcc, /usr/bin/g++, /usr/bin/gfortran
+  jobs:      64
+```
+
+预演不生成任何文件。路径或并行度不合适，就调整命令行里的 `--prefix`、`--build-dir`、
+编译器路径或 `--jobs`。它还不会检查磁盘权限，正式安装前仍要确认目标目录可写。
+
+计划无误后，再从下面三种安装写法中选一种。无参数运行会进入交互模式，一路按 Enter
+采用默认值：
 
 ```bash
 ./install_io_stack.sh
 ```
 
-一路按 Enter 会采用以下设置：
+默认设置是：
 
 - 安装目录：`local/io-stack/`
 - 下载缓存：`downloads/`
@@ -50,6 +75,10 @@ netCDF-4/HDF5 和 PnetCDF 是两条可选路径，不是说同一份文件一定
 ./install_io_stack.sh -y --prefix /scratch/$USER/mpas-io -j 64
 ```
 
+若采用这个自定义前缀，后面的检查命令要把 `IO_ROOT` 设为
+`/scratch/$USER/mpas-io`。本教程案例脚本仍按默认的 `local/io-stack` 查找依赖；准备继续
+逐课运行时，优先使用默认目录。
+
 也可以明确指定三种编译器：
 
 ```bash
@@ -58,11 +87,60 @@ netCDF-4/HDF5 和 PnetCDF 是两条可选路径，不是说同一份文件一定
   --fc /opt/gcc/bin/gfortran
 ```
 
-正式编译前，建议先加 `--dry-run`。脚本会打印准备使用的目录、编译器和命令，但不会
-真正编译。请注意，它只能检查参数是否解析正确，不能代替磁盘权限和依赖库的实际测试。
-
 加上 `--run-tests` 后，脚本会运行各个库自带的测试，耗时会长很多。再次执行安装脚本
 时，已经装好的组件会被跳过，下载文件也会继续使用，不必每次从头开始。
+
+### 这一步留下了什么
+
+成功安装的末尾会明确给出统一前缀和需要设置的环境变量。下面模拟的是安装成功后再次
+执行脚本的输出；前面的 `Already installed` 表示复用已有结果，并不是报错：
+
+```text
+Already installed: .../local/io-stack/bin/h5pfc
+Already installed: .../local/io-stack/bin/nc-config
+Already installed: .../local/io-stack/bin/nf-config
+Already installed: .../local/io-stack/lib/libpiof.a
+
+I/O stack installation complete: .../local/io-stack
+Use it with:
+  export PATH=".../local/io-stack/bin:$PATH"
+  export LD_LIBRARY_PATH=".../local/io-stack/lib:${LD_LIBRARY_PATH:-}"
+```
+
+默认安装后，主要产物集中在同一个前缀中：
+
+```text
+local/io-stack/
+├── bin/
+│   ├── mpicc
+│   ├── mpifort
+│   ├── nc-config
+│   ├── nf-config
+│   └── pnetcdf-config
+├── include/                  # C 头文件和 Fortran .mod 文件
+└── lib/
+    ├── libmpi.so
+    ├── libhdf5.so
+    ├── libnetcdf.so
+    ├── libnetcdff.so
+    ├── libpnetcdf.so
+    ├── libpioc.a
+    ├── libpiof.a
+    └── libnetcdf.settings
+```
+
+`libnetcdf.settings` 是构建过程自动写出的“体检单”，本项目中的关键内容为：
+
+```text
+NetCDF Version:          4.9.3
+C Compiler:              .../local/io-stack/bin/mpicc
+HDF5 Support:            yes
+NC-4 Parallel Support:   yes
+PnetCDF Support:         yes
+```
+
+`.so`、`.a`、`.mod` 和 `libnetcdf.settings` 都是编译产物。路径或工具链不对时，应整理
+shell 环境，或带着正确参数重新执行安装脚本。
 
 ## 脚本究竟安装哪些版本
 
@@ -101,6 +179,22 @@ pnetcdf-config --version
 GFortran；两个 netCDF 并行功能检查都应返回 `yes`；版本号应分别包含
 netCDF-Fortran 4.6.2 和 PnetCDF 1.15.0。
 
+### 这一步留下了什么
+
+本机实测输出很短，正好可以逐行核对：
+
+```text
+.../MPAS_tutorial/local/io-stack/bin/mpifort
+/usr/bin/gfortran
+yes
+yes
+4.6.2
+PnetCDF 1.15.0
+```
+
+这些查询不会生成文件，`export` 也只对当前 shell 生效。若第一行落到 `/usr/bin/mpifort`
+或并行功能返回 `no`，先检查 `PATH` 和安装参数，再用同一套编译器与 MPI 重建相关库。
+
 最后检查 MPAS 实际会加载哪些动态库：
 
 ```bash
@@ -111,6 +205,23 @@ ldd local/mpas-8.4.2/bin/mpas_atmosphere | \
 `libnetcdff.so` 是 netCDF-Fortran 的动态库。输出路径都应指向统一的安装目录。如果出现
 `not found`，或者系统 MPI 与项目内的 netCDF 混在一起，先不要运行 MPAS，应当回头整理
 `PATH` 和 `LD_LIBRARY_PATH`。
+
+### 这一步留下了什么
+
+本项目的 `ldd` 结果包含下面这些关键行；PIO 在这里以静态库链接，因此没有单独的
+`libpio.so` 行是正常的。
+
+```text
+libnetcdf.so.22 => .../local/io-stack/lib/libnetcdf.so.22 (...)
+libpnetcdf.so.8 => .../local/io-stack/lib/libpnetcdf.so.8 (...)
+libmpi_mpifh.so.40 => .../local/io-stack/lib/libmpi_mpifh.so.40 (...)
+libmpi.so.40 => .../local/io-stack/lib/libmpi.so.40 (...)
+libhdf5_hl.so.310 => .../local/io-stack/lib/libhdf5_hl.so.310 (...)
+libhdf5.so.310 => .../local/io-stack/lib/libhdf5.so.310 (...)
+```
+
+`ldd` 只读取 ELF 程序的依赖表，不会产生新文件。发现混用系统库时，先整理环境变量；仍然
+混用，就回到统一前缀重新编译。
 
 ## 用自己的话讲一遍
 

@@ -47,21 +47,62 @@ MPAS 采用球面质心 Voronoi 剖分（SCVT）。可以先把它想成一只�
 ./prepare_beijing_case.sh --mesh-only
 CASE="$PWD/work/beijing_240km_2026101500"
 local/io-stack/bin/ncdump -h "$CASE/x1.10242.grid.nc" | \
-  grep -E 'nCells =|nEdges =|nVertices =|latCell|cellsOnCell'
+  grep -E '^[[:space:]]*(nCells|nEdges|nVertices) =|^[[:space:]]*(double latCell|int cellsOnCell)\('
 ```
 
-`--mesh-only` 表示只准备官方网格及配套的静态文件，跳过 GFS 链接和 `ungrib.exe`。输出中
-应当看到：
+`--mesh-only` 表示只准备官方网格及配套的静态文件，跳过 GFS 链接和 `ungrib.exe`。
+
+### 这一步留下了什么
+
+脚本的终端摘要和 `ncdump` 的关键输出应当接近下面这样：
 
 ```text
-nCells = 10242
-nEdges = 30720
-nVertices = 20480
+Prepared mesh files in .../work/beijing_240km_2026101500
+nCells = 10242 ;
+nVertices = 20480 ;
+nEdges = 30720 ;
+double latCell(nCells) ;
+int cellsOnCell(nCells, maxEdges) ;
 ```
 
-还应看到网格单元纬度 `latCell` 和相邻表 `cellsOnCell`。下载包里另有
-`x1.10242.static.nc`，其中已经包含插值到这张网格上的地形、土地利用和土壤资料；我们
-会到第 6 课才使用它。
+案例目录中新增的不只是一个 NetCDF 文件，还包括原始邻接图和多种 MPI 进程数对应的分区：
+
+```text
+work/beijing_240km_2026101500/
+├── x1.10242.grid.nc
+├── x1.10242.static.nc
+├── x1.10242.graph.info
+├── x1.10242.graph.info.part.2
+├── x1.10242.graph.info.part.4
+├── ...
+└── x1.10242.graph.info.part.64
+```
+
+第一次下载还会把两个压缩包留在缓存中，换案例或重装时可以复用：
+
+```text
+downloads/
+├── x1.10242.tar.gz          # 约 6.1 MiB
+└── x1.10242_static.tar.gz   # 约 5.5 MiB
+```
+
+`grid.nc` 的头部是 NetCDF CDL 描述，关键部分长这样：
+
+```cdl
+dimensions:
+    nCells = 10242 ;
+    nVertices = 20480 ;
+    nEdges = 30720 ;
+variables:
+    double latCell(nCells) ;
+        latCell:units = "rad" ;
+    int cellsOnCell(nCells, maxEdges) ;
+        cellsOnCell:long_name = "IDs of cells neighboring a cell" ;
+```
+
+下载包里的 `x1.10242.static.nc` 已经带有插值到这张网格上的地形、土地利用和土壤资料，
+第 6 课才会使用它。下一步只读取 `grid.nc` 画图；若要移动加密中心，应使用第 8 课的网格
+旋转工具，而不是逐项修改 NetCDF 中的 `latCell`。
 
 ## 再把刚下载的网格画出来
 
@@ -113,9 +154,36 @@ python tools/plot_mpas_mesh.py \
 test -s "$CASE/x1.10242.mesh.png"
 ```
 
-脚本应报告 `10242 cells, 30720 edges, 20480 vertices`，并给出
-`5 sides=12, 6 sides=10230`，以及北京最近网格单元中心约 130 km。最后一条 `test -s`
-用来确认图片已经生成，而且不是空文件。
+### 这一步留下了什么
+
+第一次安装 Python 包时会有较长的下载与安装信息，末尾会出现类似下面一行；具体版本随
+安装时间变化，重复执行时则会提示这些包已经存在：
+
+```text
+Successfully installed matplotlib-... netCDF4-... numpy-...
+```
+
+随后，绘图脚本会给出本课真实网格的摘要：
+
+```text
+mesh: 10242 cells, 30720 edges, 20480 vertices
+cell shapes: 5 sides=12, 6 sides=10230
+nearest target cell: index=3150, ID=3151, center=(115.6503 E, 40.9221 N), distance=130.1 km
+wrote .../work/beijing_240km_2026101500/x1.10242.mesh.png
+```
+
+这一步新建 Python 虚拟环境和一张约 466 KiB 的 PNG：
+
+```text
+work/
+├── venv-post/                       # numpy、netCDF4、matplotlib
+└── beijing_240km_2026101500/
+    └── x1.10242.mesh.png
+```
+
+最后一条 `test -s` 成功时没有输出，它只确认图片存在且不是空文件。想换图片位置就改
+`--output`，想换目标点则使用脚本提供的经纬度参数。`work/venv-post/` 和 PNG 都是后处理
+产物，不会改变模式网格。
 
 Mollweide 只改变画图方式，不会改变模式网格。不要拿屏幕上的长度去量网格距。这张图也
 只能证明网格几何能够正常读取，不能证明静态场、初值或预报已经生成。
@@ -144,13 +212,44 @@ awk 'NR==1{lo=hi=$1} {if($1<lo)lo=$1; if($1>hi)hi=$1} \
      END{print "rank range:",lo,hi}' "$CASE/x1.10242.graph.info.part.64"
 ```
 
-结果应依次包含 `10242 30720`、`10242` 行和 `rank range: 0 63`。以后在 namelist 中看到
+### 这一步留下了什么
+
+这三个命令不会创建新文件，只会读出下载包中的分区信息。本项目实测为：
 
 ```text
+        10242        30720
+10242 .../x1.10242.graph.info.part.64
+rank range: 0 63
+```
+
+`graph.info` 本身是纯文本。第一行给出节点和图边数量，接下来的每一行列出一个 cell 的
+邻居编号，例如：
+
+```text
+        10242        30720
+     2567     2563     2564     2565     2566
+     2570     2571     2572     2568     2569
+```
+
+`.part.64` 也是纯文本，但它每行只有一个 rank 编号；开头可能像这样：
+
+```text
+56
+7
+40
+25
+50
+```
+
+以后在 namelist 中看到
+
+```fortran
 config_block_decomp_file_prefix='x1.10242.graph.info.part.'
 ```
 
 意思就是：MPAS 会把实际使用的 MPI 进程数接在这个前缀后面，再读取对应的分区文件。
+要改的是 MPI 任务数，或 namelist 中指向另一套网格分区的前缀；不要手工重排 `.part.N`
+中的数字。缺少某个任务数的分区文件时，应使用图划分工具重新生成，而不是复制后改文件名。
 
 ## 把加密区移到北京，究竟改了什么
 

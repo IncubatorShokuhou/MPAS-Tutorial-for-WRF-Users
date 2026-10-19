@@ -69,23 +69,45 @@ MPAS 的静态资料制作，大致对应 `geogrid.exe` 所做的事；气象场
 从仓库根目录检查，不满足就先重新执行准备与 ungrib：
 
 ```bash
-CASE_DIR=work/beijing_240km_2026101500
+export CASE_DIR="$PWD/work/beijing_240km_2026101500"
 test -s "$CASE_DIR/x1.10242.static.nc"
 test -s "$CASE_DIR/x1.10242.graph.info.part.16"
 test -s "$CASE_DIR/FILE:2026-10-15_00"
 test "$(find "$CASE_DIR" -maxdepth 1 -type f -name 'FILE:*' | wc -l)" -eq 9
 ```
 
+这里使用 `export`，是为了让后面的 `run_beijing_case.sh` 也收到同一个案例目录；只写
+`CASE_DIR=...` 而不导出，当前 shell 的检查会用新目录，子脚本却可能仍回到默认目录。
+
 若检查失败，执行：
 
 ```bash
-./prepare_beijing_case.sh
-(cd work/beijing_240km_2026101500 && ./ungrib.exe)
+./prepare_beijing_case.sh --case-dir "$CASE_DIR"
+(cd "$CASE_DIR" && ./ungrib.exe)
 ```
 
 完成后应有第 4 课所说的九个连续 `FILE:*`，日志中还应出现
 `Successful completion of program ungrib.exe`。输入文件没准备好时，不要试图修改
 namelist 绕过检查。
+
+### 这一步留下了什么
+
+四个 `test` 都通过时，终端**没有任何输出**，退出状态为 0。这是正常现象，不是命令没
+执行。此时第 6 课真正依赖的目录骨架应是：
+
+```text
+work/beijing_240km_2026101500/
+├── case.env                            # 普通文本，案例时间与路径元数据
+├── x1.10242.static.nc                  # 普通 NetCDF，约 19 MiB
+├── x1.10242.graph.info.part.16         # 普通文本，约 24 KiB
+├── FILE:2026-10-15_00                 # 普通二进制文件，约 781 MiB
+├── ...
+└── FILE:2026-10-16_00                 # 普通二进制文件，约 781 MiB
+```
+
+只做 `test` 不会生成任何文件；执行补救命令时，则会重新建立第 4 课介绍的链接和
+`FILE:*`。换案例时要改 `CASE_DIR`，并通过 `prepare_beijing_case.sh` 的参数重建
+`case.env`；不要只改这里的 shell 变量，却继续使用旧目录中的日期文件。
 
 ## 第二步：生成 `init.nc`
 
@@ -105,6 +127,65 @@ x1.10242.static.nc + FILE:2026-10-15_00
                      + graph.info.part.16
                      -> x1.10242.init.nc
 ```
+
+### 这一步留下了什么
+
+终端开头会把从 `case.env` 读到的时间打印出来。MPAS 的详细输出写进日志，所以屏幕上不
+一定持续滚动：
+
+```text
+Case timing: 2026-10-15_00:00:00 -> 2026-10-16_00:00:00 (run duration 1_00:00:00; input every 3h)
+```
+
+一次成功的 init 会新增或更新这些关键文件：
+
+```text
+work/beijing_240km_2026101500/
+├── init_atmosphere_model -> /path/to/MPAS_tutorial/local/mpas-8.4.2/bin/mpas_init_atmosphere
+├── atmosphere_model -> /path/to/MPAS_tutorial/local/mpas-8.4.2/bin/mpas_atmosphere
+├── namelist.init_atmosphere       # 普通文本，约 1.3 KiB；脚本重写
+├── streams.init_atmosphere        # 普通 XML，约 1.2 KiB；脚本重写
+├── stream_list.atmosphere.* -> /path/to/MPAS_tutorial/local/mpas-8.4.2/share/MPAS/...
+├── x1.10242.init.nc               # 普通 NetCDF，实测约 173 MiB
+└── log.init_atmosphere.0000.out   # 普通文本日志，实测约 23 KiB
+```
+
+脚本生成的 namelist 中，最值得先核对的是：
+
+```fortran
+&nhyd_model
+ config_init_case = 7
+ config_start_time = '2026-10-15_00:00:00'
+/
+&data_sources
+ config_met_prefix = 'FILE'
+ config_fg_interval = 10800
+/
+&preproc_stages
+ config_static_interp = false
+ config_vertical_grid = true
+ config_met_interp = true
+/
+&decomposition
+ config_block_decomp_file_prefix = 'x1.10242.graph.info.part.'
+/
+```
+
+对应 streams 的真实数据通道是：
+
+```xml
+<immutable_stream name="input" type="input"
+                  filename_template="x1.10242.static.nc"
+                  input_interval="initial_only" />
+<immutable_stream name="output" type="output"
+                  filename_template="x1.10242.init.nc"
+                  packages="initial_conds"
+                  output_interval="initial_only" />
+```
+
+换日期、资料间隔或案例目录，应回到准备脚本参数和 `case.env`；换 MPI 数可改 `NTASKS`，
+前提是存在同后缀 `.part.N`。不要在执行 `run_beijing_case.sh init` 之前手改上述两份配置，
+因为脚本马上会覆盖；更不要用文本或 NetCDF 编辑器“修补”生成的 `init.nc`。
 
 ### 检查初值是否合格
 
@@ -138,6 +219,23 @@ local/io-stack/bin/ncdump -v nominalMinDc \
   "$CASE_DIR/x1.10242.init.nc" | tail -8
 ```
 
+真实输出节选如下，长变量清单无需整段抄进检查记录：
+
+```text
+dimensions:
+    nVertLevels = 55 ;
+    nCells = 10242 ;
+    nEdges = 30720 ;
+    nVertices = 20480 ;
+    nVertLevelsP1 = 56 ;
+    nSoilLevels = 4 ;
+
+xtime =
+  "2026-10-15_00:00:00                                             " ;
+
+nominalMinDc = 240000 ;
+```
+
 应看到 `nCells=10242`、`nVertLevels=55`、`nVertLevelsP1=56`、`nSoilLevels=4`，
 `xtime=2026-10-15_00:00:00`，以及 `nominalMinDc=240000 m`。只有这些信息都对，才能
 说明初始化确实使用了正确的网格、时刻和垂直层。单看“文件已经生成，而且体积不小”，
@@ -158,20 +256,102 @@ sed -n '1,160p' "$CASE_DIR/streams.init_atmosphere"
 NTASKS=16 ./run_beijing_case.sh forecast
 ```
 
-这条命令在前台运行。等它返回时，模式已经结束。随后查看日志末尾：
+这条命令在前台运行，返回时预报已经结束。想实时看进度，可以另开一个终端；新终端不会
+继承原终端临时设置的变量，所以要把 `CASE_DIR` 设成同一个目录：
+
+```bash
+export CASE_DIR="$PWD/work/beijing_240km_2026101500"
+tail -f "$CASE_DIR/log.atmosphere.0000.out"
+```
+
+模式结束后按 Ctrl-C 退出实时查看。随后回到原终端检查日志末尾：
 
 ```bash
 tail -n 50 "$CASE_DIR/log.atmosphere.0000.out"
 ```
 
-如果想实时查看进度，请另开一个终端，运行：
+### 这一步留下了什么
 
-```bash
-tail -f work/beijing_240km_2026101500/log.atmosphere.0000.out
+终端仍会先打印同一行案例时间。模式结束后，案例目录新增一组普通 NetCDF 大文件：
+
+```text
+work/beijing_240km_2026101500/
+├── namelist.atmosphere                    # 普通文本，约 2.4 KiB；脚本重写
+├── streams.atmosphere                     # 普通 XML，约 2.7 KiB；脚本重写
+├── history.2026-10-15_00.00.00.nc         # 约 167 MiB
+├── ...                                    # 共 5 份，合计约 834 MiB
+├── history.2026-10-16_00.00.00.nc
+├── diag.2026-10-15_00.00.00.nc            # 约 11 MiB
+├── ...                                    # 共 9 份，合计约 91 MiB
+├── diag.2026-10-16_00.00.00.nc
+├── restart.2026-10-16_00.00.00.nc         # 约 431 MiB
+├── restart_timestamp                      # 21 B，内容是最近重启时刻
+└── log.atmosphere.0000.out                 # 普通文本，实测约 88 KiB
 ```
 
-模式结束后按 Ctrl-C 退出。不要把 `tail -f` 直接接在前台预报命令后面，否则它会等到
-预报已经结束才启动，然后一直不返回。
+`restart_timestamp` 是普通文本，本例内容为：
+
+```text
+ 2026-10-16_00:00:00
+```
+
+连同第 4 课的 WPS 中间文件，完整案例在本机约占 8.4 GiB：
+
+```bash
+du -sh "$CASE_DIR"
+```
+
+```text
+8.4G    /path/to/MPAS_tutorial/work/beijing_240km_2026101500
+```
+
+不同文件系统的统计值可能略有差异。这里的重点不是精确到字节，而是确认大头来自可重建
+的 `FILE:*` 和模式输出；这些大文件不应提交到 Git。
+
+namelist 中本次积分的关键节选是：
+
+```fortran
+&nhyd_model
+ config_dt = 1200.0
+ config_start_time = '2026-10-15_00:00:00'
+ config_run_duration = '1_00:00:00'
+/
+&restart
+ config_do_restart = false
+/
+&physics
+ config_sst_update = false
+ config_physics_suite = 'mesoscale_reference'
+/
+```
+
+streams 中则能直接读出文件名和频率：
+
+```xml
+<immutable_stream name="input"
+                  type="input"
+                  filename_template="x1.10242.init.nc"
+                  input_interval="initial_only" />
+<stream name="output"
+        type="output"
+        filename_template="history.$Y-$M-$D_$h.$m.$s.nc"
+        output_interval="6:00:00">
+    <file name="stream_list.atmosphere.output"/>
+</stream>
+<stream name="diagnostics"
+        type="output"
+        filename_template="diag.$Y-$M-$D_$h.$m.$s.nc"
+        output_interval="3:00:00">
+    <file name="stream_list.atmosphere.diagnostics"/>
+</stream>
+```
+
+读者可以通过准备脚本改变积分时长，通过已有 `.part.N` 改 `NTASKS`。本基线不要手改
+`history/diag/restart`；它们是后处理输入，不是配置文件。也不要沿着 `stream_list.*`
+软链接修改安装目录中的公共清单。若要定制输出频率或变量，应采用第 5 课说明的“生成后
+复制配置、再手工启动”方法，或者等后续把它做成脚本参数。运行脚本不会先删除旧的
+history、diag、restart 或日志；重跑前应换一个新的 `CASE_DIR`，或至少结合文件修改时间
+和 `xtime` 区分本次结果，不能只凭文件名和数量判断成功。
 
 240 km 教学算例使用 `config_dt=1200 s`，24 小时共走 72 个动力大步。历史场 history
 每 6 小时输出一次，诊断场 diagnostics 每 3 小时输出一次。这两个间隔写在
@@ -189,6 +369,15 @@ grep -E 'Finished running|Warning messages|Error messages|Critical error message
 本机实测时，atmosphere 核心程序正常完成，日志显示 3 条警告、0 个错误、0 个严重错误。
 三条已知警告是初值中没有云冰 `qi`、雪 `qs`、霰 `qg` 三种冰相水凝物，程序在这个教学
 算例中仍会继续运行。如果你的日志也是 3 条警告，但内容不同，不能只看数量相同就忽略。
+
+真实日志末尾的摘要是：
+
+```text
+Finished running the atmosphere core
+Warning messages = 3
+Error messages = 0
+Critical error messages = 0
+```
 
 接着检查输出文件数量和最后时刻：
 
@@ -209,11 +398,22 @@ local/io-stack/bin/ncdump -v xtime \
 算在内。如果重复使用旧的案例目录，请先分清哪些文件是上一次留下的。否则文件数量看似
 正确，也可能只是旧文件凑出来的，不能证明这次预报成功。
 
+最后一个诊断文件的关键内容应是：
+
+```text
+xtime =
+  "2026-10-16_00:00:00                                             " ;
+```
+
 如果希望制作初值后紧接着运行预报，可以在干净的案例目录中执行：
 
 ```bash
 NTASKS=16 ./run_beijing_case.sh all
 ```
+
+`all` 不会产生第四类新文件；它只是依次留下前面两组 init 和 forecast 成果。已有目录中
+若残留旧时次，脚本不会替你建立隔离快照，所以正式试验最好为每个起报建立独立
+`CASE_DIR`。
 
 第一次学习时，仍建议把两步分开。这样一旦出错，很容易判断问题出在 GFS 制作初值，
 还是初值进入正式预报以后。
