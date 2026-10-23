@@ -51,8 +51,9 @@ MPAS 有一套公共框架，具体求解什么问题，由挂在框架上的核
 - `mpas_atmosphere`：读取初值并向前积分，作用大致相当于 WRF 的 `wrf.exe`。
 
 初始化程序不能代替 `ungrib.exe`。GFS 的 GRIB2 文件要先由 `ungrib.exe` 解码成 WPS
-中间格式，然后才能交给 MPAS 初始化程序。若用 WRF 作类比，第一次运行初始化程序可以
-把地理资料插值到网格上；第二次运行再把气象场插值到同一张网格并制作初值。
+中间格式，然后才能交给 MPAS 初始化程序。若用 WRF 作类比，第一次运行初始化程序大致
+相当于 `geogrid.exe`，把地理资料插值到网格上；第二次运行大致相当于 `metgrid.exe` 加
+`real.exe`，把气象场插值到同一张网格并制作初值。
 `ungrib.exe` 仍由 WPS 提供。
 
 案例目录里还会出现 `init_atmosphere_model` 和 `atmosphere_model`。它们只是上面两个
@@ -113,9 +114,8 @@ netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信�
 
 上游提供 CMake 构建方式的库优先使用 CMake；OpenMPI 和 PnetCDF 则按照上游给出的
 `configure`、`make` 步骤编译。脚本默认只做一次两进程 MPI 启动检查。若加上
-`--run-tests`，还会
-运行依赖库自身的测试，所需时间会明显增加。若准备继续学习第 4 课，可以加
-`--with-wps`，同时安装 `ungrib.exe`。
+`--run-tests`，还会运行依赖库自身的测试，所需时间会明显增加。若准备继续学习第 4 课，
+可以加 `--with-wps`，同时安装 `ungrib.exe`。
 
 ### 这一步留下了什么
 
@@ -188,7 +188,7 @@ ldd local/mpas-8.4.2/bin/mpas_atmosphere | grep -E 'local/io-stack|not found'
 并且具有执行权限。`ldd` 显示的相关动态库应来自 `local/io-stack`；只要出现
 `not found`，就说明运行环境还没有准备好。
 
-不要只看最后一条编译命令是否返回 0。真正需要确认的是：程序启动时找到的 MPI 和 I/O
+不要只看最后一条编译命令是否返回 0。真正需要确认的是，程序启动时找到的 MPI 和 I/O
 库，确实是我们刚刚编译的这一套。
 
 ### 这一步留下了什么

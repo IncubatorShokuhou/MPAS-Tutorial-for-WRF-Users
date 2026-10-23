@@ -26,10 +26,10 @@ MPAS-A 的 `namelist.atmosphere` 里，你找不到一组能直接生成水平�
 4. 从全球网格裁出有限区域，并另外制作随时间变化的侧边界条件。
 
 第 3 课已经介绍过球面质心 Voronoi 剖分（SCVT）。第一次接触 MPAS，没有必要从数学
-网格生成开始。先旋转
-一张官方已经检查过的网格，更容易分清问题究竟出在网格本身，还是出在气象资料初始化。
+网格生成开始。先旋转一张官方已经检查过的网格，更容易分清问题究竟出在网格本身，还是
+出在气象资料初始化。
 
-## 为什么先用 92—25 km 网格
+## 为什么先用 92–25 km 网格
 
 官方 `x4.163842` 网格共有 163842 个网格单元：全球背景分辨率约 92 km，加密中心约 25 km，
 加密区大约横跨 60°。名称中的 `x4` 表示粗区与细区的分辨率相差约四倍，`163842` 表示
@@ -38,13 +38,13 @@ MPAS-A 的 `namelist.atmosphere` 里，你找不到一组能直接生成水平�
 下图颜色使用 `6371 km × sqrt(areaCell)` 计算。它只根据单元面积估算局地尺度，并不等于
 官方给出的严格名义网格间距。点越密、颜色越暗，说明当地网格单元越小。
 
-![旋转到北京后的 92—25 km 网格；颜色表示按网格单元面积估算的当地尺度](images/beijing_mesh_resolution.png)
+![旋转到北京后的 92–25 km 网格；颜色表示按网格单元面积估算的当地尺度](images/beijing_mesh_resolution.png)
 
 ## 第一步：下载网格并把加密区转到北京
 
 请先完成第 1、2 课，并确认系统可以使用 `curl`、Git、Make 和项目自带的 netCDF。NumPy、
 netCDF4、Matplotlib 已在第 7 课装进 `work/venv-post`，新终端要先激活它。以下命令从仓库
-根目录运行，会下载约 122 MB 的压缩包，并把原网格和旋转后的网格都留在 `work/` 中：
+根目录运行，会下载约 122 MiB 的压缩包，并把原网格和旋转后的网格都留在 `work/` 中：
 
 ```bash
 source work/venv-post/bin/activate
@@ -130,7 +130,7 @@ $ sed -n '1,8p' work/beijing_92-25km/namelist.input
 脚本结束时应打印类似结果：
 
 ```text
-nearest cell=..., distance=10.26 km, area scale=20.28 km
+nearest cell=..., distance=10.256 km, area scale=20.28 km
 ```
 
 再检查网格维度，并画出局地分辨率分布：
@@ -379,5 +379,5 @@ WPS_GEOG。确认 `index` 和数据分块都能读取后，再重新运行脚本
 ## 参考资料
 
 - [MPAS-A 官方网格列表](https://www2.mmm.ucar.edu/projects/mpas/site/downloads/meshes.html)
-- [官方网格旋转与图划分说明](https://www2.mmm.ucar.edu/projects/mpas/mpas_website/build/html/users_guide/preparing_meshes.html)
+- [官方网格旋转与图划分说明](https://www2.mmm.ucar.edu/projects/mpas/site/documentation/users_guide/preparing_meshes.html)
 - [官方初始化 namelist 参数](https://www2.mmm.ucar.edu/projects/mpas/site/documentation/users_guide/appA_init_namelist.html)

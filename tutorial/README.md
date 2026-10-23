@@ -37,7 +37,7 @@ graph.info.part.N（网格单元到 N 个进程的分工表）─→ 并行运�
 | 课次 | 内容 | 学完应能解释 |
 |---:|---|---|
 | [0](00_wrf_to_mpas.md) | 从 WRF 转到 MPAS | 哪些 WRF 做法还能沿用，哪些需要重新理解？ |
-| [1](01_compile_mpas.md) | 编译 MPAS-A | 初始化器与预报程序为何分开？ |
+| [1](01_compile_mpas.md) | 编译 MPAS-A | 初始化程序与预报程序为何分开？ |
 | [2](02_io_stack.md) | MPI 与并行输入输出库 | 为什么 MPAS 不只依赖 PnetCDF？ |
 | [3](03_grid_fundamentals.md) | 下载网格并查看真实多边形 | 为什么 namelist 中没有 `dx/e_we`？ |
 | [4](04_wps_ungrib.md) | GFS 解码与 WPS 中间格式 | 为什么 MPAS 只需要 `ungrib`？ |
