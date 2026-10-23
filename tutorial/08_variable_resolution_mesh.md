@@ -91,7 +91,7 @@ MPAS_tutorial/
 ./prepare_beijing_vr_mesh.sh --mpas-tools-revision TAG_OR_COMMIT
 ```
 
-`grid_rotate` 不读取模式的 namelist，而是读取当前工作目录中的 `namelist.input`：
+模式的 namelist 不参与这次旋转。`grid_rotate` 读取当前工作目录中的 `namelist.input`：
 
 ```fortran
 &input
@@ -127,7 +127,7 @@ $ sed -n '1,8p' work/beijing_92-25km/namelist.input
 
 ## 第二步：确认网格确实转到了北京
 
-脚本结束时应打印类似结果：
+脚本结束时应打印类似结果。
 
 ```text
 nearest cell=..., distance=10.256 km, area scale=20.28 km
@@ -165,10 +165,10 @@ $ ls -lh work/beijing_92-25km/{x4.163842.grid.nc,beijing.x4.163842.grid.nc,beiji
 
 原始网格、旋转网格和分辨率图分别是输入、核心派生数据和检查图。要换加密位置，就重新
 运行旋转脚本；要换绘图范围，则使用 `plot_mesh_resolution.py --extent W E S N`。检查图中
-暗色密集区围绕北京红色星号展开，色标表示面积尺度估算，不是地形或预报变量。
+暗色密集区围绕北京红色星号展开。色标表示面积尺度估算，地形和预报变量不在这张图上。
 
-预期结果是 `nCells=163842`，最近的网格单元中心距北京约 10 km。按面积计算的当地尺度约 20 km，
-而网格名称写的是 25 km，两者并不矛盾：名称采用名义网格间距，脚本使用的只是
+预期结果是 `nCells=163842`，最近的网格单元中心距北京约 10 km。按面积计算的当地尺度约 20 km。
+网格名称里的 25 km 是名义网格间距，脚本使用的只是
 `sqrt(areaCell)` 这一面积尺度估算。
 
 ## 网格转动以后，为什么分区文件还能用
@@ -180,7 +180,7 @@ $ ls -lh work/beijing_92-25km/{x4.163842.grid.nc,beijing.x4.163842.grid.nc,beiji
 - 文件名中的 `N` 必须和 `mpiexec -n N` 完全一致。
 
 旋转网格会改变 `latCell/lonCell`、球面三维坐标、科氏参数以及边的地理方向，却没有
-改变“谁和谁相邻”。因此，原来的 `graph.info` 和 `.part.N` 仍可使用；原来的
+改变“谁和谁相邻”。原来的 `graph.info` 和 `.part.N` 因此仍可使用；原来的
 `static.nc`、`init.nc` 和预报输出则与旧地理位置绑定，不能继续使用。
 
 官方压缩包已经带有若干常用进程数的分区文件，先查看现有文件：
@@ -272,7 +272,7 @@ with Dataset(path) as ds:
 PY
 ```
 
-上面是一组“权限恢复后应执行的验收命令”，不是本机已经获得的成功输出。当前实际运行在
+上面是一组权限恢复后应执行的验收命令。本机还没有跑出成功输出。当前实际运行在
 读取权限预检处立即结束：
 
 ```console
