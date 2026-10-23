@@ -1,7 +1,8 @@
 # MPAS Tutorial for WRF Users
 
 这套教程写给 **熟悉 WRF、刚接触 MPAS** 的读者。我们从 GCC/GFortran 编译讲起，接着
-处理 GFS 资料、制作初值、完成一次真实预报，再学习北京加密网格和 Python 绘图。
+处理 GFS 资料、制作初值、完成一次真实预报，再学习北京加密网格、区域与自定义网格，
+以及 Python 绘图。
 
 教程不会让你先背命令。每一步都先说明为什么这样做，再给出可以照着运行的命令。运行后
 还要查看日志、文件和图，确认结果确实正确。最后，你应该能用自己的话把整个过程讲清楚。
@@ -19,8 +20,8 @@
 | [6](tutorial/06_initialization_and_forecast.md) | 初值与预报 | `grid/static/FILE/init` 如何连接？ |
 | [7](tutorial/07_output_and_beijing_timeseries.md) | 输出诊断 | `nCells/nEdges/nVertices` 如何取数？ |
 | [8](tutorial/08_variable_resolution_mesh.md) | 北京加密网格 | 如何设置真正的“北京中心”？ |
-| [9](tutorial/09_cartopy_visualization.md) | Cartopy | 如何正确投影非结构网格？ |
-| [10](tutorial/10_custom_mesh.md) | 选择与制作网格 | 没有 Domain Wizard，区域该怎么划？ |
+| [9](tutorial/09_custom_mesh.md) | 选择与制作网格 | 没有 Domain Wizard，区域该怎么划？ |
+| [10](tutorial/10_cartopy_visualization.md) | Cartopy | 如何正确投影非结构网格？ |
 
 ## 先用 240 km 粗网格跑通一遍
 
