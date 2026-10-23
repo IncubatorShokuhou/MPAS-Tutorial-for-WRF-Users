@@ -57,11 +57,11 @@ MPAS 有一套公共框架，具体求解什么问题，由挂在框架上的核
 `ungrib.exe` 仍由 WPS 提供。
 
 案例目录里还会出现 `init_atmosphere_model` 和 `atmosphere_model`。它们只是上面两个
-安装文件的软链接，采用了官方文档常见的名称，并不是另外编译出的程序。
+安装文件的软链接，采用了官方文档常见的名称。
 
 ## 为什么这些依赖库要一起编译
 
-完整的编译顺序如下：
+完整的编译顺序如下。
 
 ```text
 OpenMPI → zlib → HDF5 → PnetCDF → netCDF-C → netCDF-Fortran → PIO → MPAS-A
@@ -69,11 +69,11 @@ OpenMPI → zlib → HDF5 → PnetCDF → netCDF-C → netCDF-Fortran → PIO �
 
 MPAS 把并行读写任务交给 PIO（ParallelIO，并行 I/O 调度库）。PIO 可以选用
 netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信和并行文件访问。
-所以，MPAS 绝不只依赖 PnetCDF。第 2 课会逐层说明这些库的作用。
+所以 netCDF-4/HDF5 和 PnetCDF 都要留在依赖里。第 2 课会逐层说明这些库的作用。
 
 这里还要认识一个容易引起麻烦的词：ABI，即二进制接口。它规定编译后的程序怎样传递
 参数、怎样组织内存。两个库即使名字和版本看起来都对，只要分别用了不同的 Fortran
-编译器或不同的 MPI，仍可能在链接或运行时出错。因此，这些库必须用同一套编译器和
+编译器或不同的 MPI，仍可能在链接或运行时出错。这些库因此必须用同一套编译器和
 同一套 MPI 依次构建。
 
 ## 开始安装
@@ -114,7 +114,7 @@ netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信�
 
 上游提供 CMake 构建方式的库优先使用 CMake；OpenMPI 和 PnetCDF 则按照上游给出的
 `configure`、`make` 步骤编译。脚本默认只做一次两进程 MPI 启动检查。若加上
-`--run-tests`，还会运行依赖库自身的测试，所需时间会明显增加。若准备继续学习第 4 课，
+`--run-tests`，还会运行依赖库自身的测试，所需时间会明显增加。继续学第 4 课时，
 可以加 `--with-wps`，同时安装 `ungrib.exe`。
 
 ### 这一步留下了什么
@@ -134,7 +134,7 @@ MPAS install: .../MPAS_tutorial/local/mpas-8.4.2
 
 第一次运行不会出现 `already installed`，而会看到许多 `Built target` 和 `Installing`；
 只要最后仍出现 `Installation complete`，并且下列可执行程序确实存在，就说明这一步完成。
-默认目录会变成下面这样：
+默认目录会变成下面这样。
 
 ```text
 MPAS_tutorial/
@@ -155,7 +155,7 @@ MPAS_tutorial/
         └── share/MPAS/        # 默认 namelist、streams 和物理查找表
 ```
 
-安装目录中的 namelist 是上游默认模板，开头看起来像这样：
+安装目录中的 namelist 是上游默认模板，开头看起来像这样。
 
 ```fortran
 &nhyd_model

@@ -102,7 +102,7 @@ Load this installation with:
   export PATH="/path/to/MPAS_tutorial/local/wps-4.6.0/bin:$PATH"
 ```
 
-仓库中的安装结果可概括为：
+仓库中的安装结果可概括为。
 
 ```text
 local/wps-4.6.0/
@@ -224,7 +224,7 @@ readlink work/beijing_240km_2026101500/Vtable
 sed -n '1,40p' work/beijing_240km_2026101500/namelist.wps
 ```
 
-三个命令的输出依次是链接数、Vtable 的绝对目标路径和 namelist 内容。前两项应类似：
+三个命令的输出依次是链接数、Vtable 的绝对目标路径和 namelist 内容。前两项应类似。
 
 ```text
 9
@@ -284,7 +284,7 @@ FILE:2026-10-16_00
 *** Successful completion of program ungrib.exe ***
 ```
 
-案例目录新增的是普通文件，而不是软链接：
+案例目录新增的 `FILE:*` 和 `logfile.log` 都是普通文件：
 
 ```text
 work/beijing_240km_2026101500/
@@ -296,7 +296,7 @@ work/beijing_240km_2026101500/
 ```
 
 九个 `FILE:*` 实测合计约 6.9 GiB，是本章最大的新增内容。它们是 **WPS intermediate
-二进制格式，不是 NetCDF**：不要用 `ncdump`，通用的 `file` 命令也可能把它误认成别的
+二进制格式**。不要用 `ncdump`，通用的 `file` 命令也可能把它误认成别的
 格式，内容核验应使用下文的 `rd_intermediate`。它们不能用文本编辑器修改；日期、变量或
 Vtable 选错时，应修正输入后重新运行 `ungrib.exe`。磁盘紧张时可以删除 `FILE:*` 后重建，
 但不要把 `GRIBFILE.*` 的软链接大小误认为原始 GFS 的实际占用。
@@ -327,7 +327,7 @@ grep -E '^FIELD = (TT|UU|VV|RH|PSFC|PMSL|SKINTEMP|SM000010|ST000010)$' \
 ### 这一步留下了什么
 
 `rd_intermediate` 不修改 `FILE:*`，只新增普通文本
-`intermediate_inventory.txt`。其中一段真实输出如下：
+`intermediate_inventory.txt`。其中一段真实输出如下。
 
 ```text
 FIELD = TT
@@ -343,7 +343,7 @@ IPROJ = 0  PROJECTION = LAT LON
   EARTH_RADIUS = 6371.229492
 ```
 
-第二条 `grep` 最后应列出九类关键字段；排序后的样子如下：
+第二条 `grep` 最后应列出九类关键字段；排序后的样子如下。
 
 ```text
 FIELD = PMSL
@@ -373,7 +373,7 @@ FIELD = VV
 - 没有 `GRIBFILE.*`：检查 GFS 路径、文件名和 `link_grib.csh`；后者需要 csh 或 tcsh。
 - 缺少某个 `FILE:*`：检查对应的预报时效、`start_date/end_date` 和 `interval_seconds`。
 - 日志报告未知/缺失字段：检查 GFS 产品是否真是 0.25° pgrb2，以及 Vtable 是否匹配。
-- GRIB2 解码失败：检查本项目的 JasPer、libpng 和 zlib，而不是先怀疑 MPAS 网格。
+- GRIB2 解码失败：先检查本项目的 JasPer、libpng 和 zlib，不要先怀疑 MPAS 网格。
 
 ## 试着用自己的话讲一遍
 

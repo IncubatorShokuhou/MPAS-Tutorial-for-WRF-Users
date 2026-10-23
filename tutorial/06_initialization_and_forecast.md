@@ -13,7 +13,7 @@ MPAS: grid -> static       static + FILE -> init   atmosphere_model
              \____________ init_atmosphere_model ______/
 ```
 
-这并不是说 MPAS 完全不用 WPS。第 4 课已经运行过 `ungrib.exe`，GRIB2 仍由它解码。
+MPAS 仍然要用 WPS。第 4 课已经运行过 `ungrib.exe`，GRIB2 仍由它解码。
 MPAS 的静态资料制作，大致对应 `geogrid.exe` 所做的事；气象场水平插值、垂直坐标建立
 和完整初值制作，则合并了 `metgrid.exe` 与 `real.exe` 的部分职责。
 
@@ -60,7 +60,7 @@ MPAS 的静态资料制作，大致对应 `geogrid.exe` 所做的事；气象场
 - `config_nvertlevels=55`：55 个 MPAS 模式质量层，并有 56 个层界面；
 - `config_ztop=30000`：几何高度约 30 km 的模式顶，不是“30 km 分辨率”或“100 hPa 顶”。
 
-制作初值并不是把 GFS 数组原样复制过去。水平风要转换为 MPAS 网格边上的法向速度；
+水平风要转换为 MPAS 网格边上的法向速度；
 地面气压要与新网格上的地形相协调；水汽、土壤状态、海温和海冰也要一起整理成模式能够
 直接积分的状态。
 
@@ -92,8 +92,8 @@ namelist 绕过检查。
 
 ### 这一步留下了什么
 
-四个 `test` 都通过时，终端**没有任何输出**，退出状态为 0。这是正常现象，不是命令没
-执行。此时第 6 课真正依赖的目录骨架应是：
+四个 `test` 都通过时，终端**没有任何输出**，退出状态为 0。这是正常现象，命令已经
+执行完。此时第 6 课真正依赖的目录骨架应是：
 
 ```text
 work/beijing_240km_2026101500/
@@ -120,7 +120,7 @@ NTASKS=16 ./run_beijing_case.sh init
 
 脚本会链接本项目编译的 `mpas_init_atmosphere` 和所需查找表，生成
 `namelist.init_atmosphere`、`streams.init_atmosphere`，再调用本项目自己编译的
-OpenMPI。它不会重新制作 static；这一步实际读取和写出的文件如下：
+OpenMPI。它不会重新制作 static；这一步实际读取和写出的文件如下。
 
 ```text
 x1.10242.static.nc + FILE:2026-10-15_00
