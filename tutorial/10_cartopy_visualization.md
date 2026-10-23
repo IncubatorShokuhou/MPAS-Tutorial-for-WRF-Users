@@ -1,4 +1,4 @@
-# 第 9 课：用 Cartopy 画出 240 km 预报
+# 第 10 课：用 Cartopy 画出 240 km 预报
 
 WRF 输出带有规则的二维下标，常用的画图程序可以直接沿着 `south_north` 和 `west_east`
 铺开。MPAS 地面场却只有一列 `nCells`。怎样把这一列数值放回地图？画出来的连续色斑，

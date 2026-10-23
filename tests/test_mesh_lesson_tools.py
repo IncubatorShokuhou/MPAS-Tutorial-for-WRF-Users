@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression checks for the lesson-10 mesh helpers (no JIGSAW needed)."""
+"""Regression checks for the lesson-9 mesh helpers (no JIGSAW needed)."""
 
 from __future__ import annotations
 

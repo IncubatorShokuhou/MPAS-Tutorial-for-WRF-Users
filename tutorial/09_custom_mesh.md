@@ -1,4 +1,4 @@
-# 第 10 课：没有 Domain Wizard，MPAS 网格怎么选、怎么做
+# 第 9 课：没有 Domain Wizard，MPAS 网格怎么选、怎么做
 
 在 WRF 里划区域，很多人习惯打开 WRF Domain Wizard，在地图上拖一个矩形，软件就替你写好
 `ref_lat/ref_lon`、`dx` 和 `e_we/e_sn`。换到 MPAS-A 以后，第一个问题往往是：同样的事情去

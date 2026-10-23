@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install the Python mesh tools used by lesson 10 into Git-ignored directories:
+# Install the Python mesh tools used by lesson 9 into Git-ignored directories:
 #   local/miniforge3/              conda base (Miniforge, conda-forge only)
 #   local/miniforge3/envs/mpas_mesh mpas_tools + jigsaw + METIS + netCDF tools
 #   src/MPAS-Limited-Area/         create_region, pinned to a fixed commit
