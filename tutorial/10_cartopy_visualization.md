@@ -1,29 +1,28 @@
 # 第 10 课：用 Cartopy 画出 240 km 预报
 
-WRF 输出带有规则的二维下标，常用的画图程序可以直接沿着 `south_north` 和 `west_east`
-铺开。MPAS 地面场却只有一列 `nCells`。怎样把这一列数值放回地图？画出来的连续色斑，
-又有多少是模式真正算出的信息？这一课把这两件事讲清楚。
+WRF 输出有规则的二维下标，常用画图程序沿着 `south_north` 和 `west_east` 铺开就行。
+MPAS 地面场只有一列 `nCells`。这一列数怎么放回地图，图上连续的色斑里有多少是模式
+真算出来的，这一课就写这两件事。
 
-我们继续使用第 6 课已经跑通的 `x1.10242` 全球网格，名义分辨率约 240 km。第 8 课那张
-北京 92–25 km 网格目前只完成了旋转；由于共享地理资料的读取权限尚未解决，它还没有
-静态文件、初值和预报结果。先用来源明确的 240 km 结果练习绘图，可以把绘图问题与
-初始化问题分开排查。
+继续用第 6 课已经跑通的 `x1.10242`，名义分辨率约 240 km。第 8 课那张北京 92–25 km
+网格目前只转完了。共享地理资料的读权限还没解决，没有静态文件、初值和预报。
+先用这份来源清楚的 240 km 结果练画图，绘图问题和初始化问题就不会缠在一起。
 
 ![240 km 教学预报的 Cartopy 天气图](images/beijing_cartopy_t2m.png)
 
 ## 三个 Python 库各管一件事
 
-这张图用到三个主要工具：netCDF4 从模式文件读取变量，Matplotlib 负责填色、等值线和
-箭头，Cartopy 负责地图投影以及经纬度坐标转换。Cartopy 并不知道 MPAS 的网格单元、边、
-顶点怎样连接，更不会自动把 `nCells` 变成 WRF 那样的二维数组。
+图上用了三个库。netCDF4 从模式文件读变量，Matplotlib 画填色、等值线和箭头，
+Cartopy 管投影和经纬度转换。Cartopy 不知道网格单元怎么连，边和顶点也不归它管，
+也不会把 `nCells` 变成 WRF 那样的二维数组。
 
-本例的每个地面值都必须与相同下标的 `latCell/lonCell` 配对，才能知道它在地球上的位置。
-这个对应关系一旦错了，程序仍可能画出一张“像天气图的图”，但地理位置全是错的。
+每个地面值都要和相同下标的 `latCell/lonCell` 配对，才知道它在地球上的位置。
+这个对应错了，程序仍可能画出一张看起来像天气图的图，地理位置全是错的。
 
 ## 第一步：在第 7 课的环境中安装 Cartopy
 
 第 7 课已经在 Git 不跟踪的 `work/` 目录中创建了 Python 环境，并安装 NumPy、netCDF4
-和 Matplotlib。现在从仓库根目录激活它，再增加地图投影库 Cartopy：
+和 Matplotlib。现在从仓库根目录激活它，再增加地图投影库 Cartopy。
 
 ```bash
 source work/venv-post/bin/activate
@@ -31,7 +30,7 @@ python -m pip install cartopy
 python -c 'import numpy, netCDF4, matplotlib, cartopy; print("Cartopy environment: OK")'
 ```
 
-依赖都能导入时，最后一条的终端输出为：
+依赖都能导入时，最后一条打出这一行。
 
 ```console
 $ python -c 'import numpy, netCDF4, matplotlib, cartopy; print("Cartopy environment: OK")'
@@ -45,20 +44,18 @@ Cartopy environment: OK
 非结构网格的可选 Python 库，本课脚本没有使用它，不必为了运行本例而安装。
 
 Cartopy 第一次调用 50 m 分辨率的海岸线和国界时，可能会下载 Natural Earth 地图资料。
-可用下面的命令查看缓存位置：
+可用下面的命令查看缓存位置。
 
 ```bash
 python -c "import cartopy; print(cartopy.config['data_dir'])"
 ```
 
-Cartopy 当前使用的地图资料缓存目录通常类似：
+本机缓存打出来是下面这一行。换机后路径可以不同，以命令的实际输出为准。
 
 ```console
 $ python -c "import cartopy; print(cartopy.config['data_dir'])"
 /home/username/.local/share/cartopy
 ```
-
-换机后路径可以不同，应以这条命令的实际输出为准。
 
 计算节点如果不能联网，可先在联网节点触发一次下载，把缓存复制到计算节点能读取的目录，
 再设置 `CARTOPY_DATA_DIR=/path/to/cartopy-data` 指向它。
@@ -68,8 +65,8 @@ $ python -c "import cartopy; print(cartopy.config['data_dir'])"
 本例的诊断文件没有写入经纬度，因此脚本从 `init.nc` 读取坐标。只比较两个文件是否都有
 10242 个网格单元还不够，因为两张不同网格也可能恰好拥有相同数量的单元。
 
-MPAS 文件中的 `file_id` 是文件标识，`parent_id` 记录生成该文件时所依据的输入文件标识。
-可以这样检查初值文件与诊断文件的生成关系：
+MPAS 文件里的 `file_id` 是文件标识，`parent_id` 记录生成该文件时用的输入文件标识。
+初值和诊断文件的这层关系可以这样查。
 
 ```bash
 python - <<'PY'
@@ -84,7 +81,7 @@ with Dataset(coord) as grid, Dataset(diag) as data:
 PY
 ```
 
-上述内嵌 Python 在当前文件上打印：
+这段 Python 在当前文件上打出一行。
 
 ```console
 same source: 32m2dhjr3k nCells = 10242
@@ -110,7 +107,7 @@ ls -lh work/beijing_240km_2026101500/cartopy_t2m-regression.png
 file work/beijing_240km_2026101500/cartopy_t2m-regression.png
 ```
 
-本机已验证过的终端和文件输出是：
+本机已经对过的终端和文件输出是这些。
 
 ```console
 $ python tools/plot_mpas_cartopy.py \
@@ -126,21 +123,22 @@ $ file work/beijing_240km_2026101500/cartopy_t2m-regression.png
 work/beijing_240km_2026101500/cartopy_t2m-regression.png: PNG image data, 1980 x 1440, 8-bit/color RGBA, non-interlaced
 ```
 
-`work/.../cartopy_t2m-regression.png` 是可再生运行产物；`tutorial/images/beijing_cartopy_t2m.png`
-是教程中显示的已提交示例图。图里包含 2 米温度填色、海平面气压黑色等值线、10 米风箭头
-及其 `10 m s⁻¹` 标尺、北京星号、海岸线、国界、经纬网和有效时刻。要改区域可传
-`--extent W E S N`；要改变量、色阶或标题，则修改绘图脚本后重新生成。
+`work/.../cartopy_t2m-regression.png` 是可再生运行产物。
+`tutorial/images/beijing_cartopy_t2m.png` 是教程里已提交的示例图。
+图上有 2 米温度填色，黑线是海平面气压，箭头是 10 米风，旁边标着
+`10 m s⁻¹`。北京是星号。海岸线、国界和经纬网都画了，还标了有效时刻。
+要改区域可传 `--extent W E S N`。改变量、色阶或标题，就改绘图脚本再生成。
 
 这张图对应世界协调时（UTC）2026-10-15 00 时起报后的第 24 小时，业务上常简写为 F024。
 填色是 2 米温度，黑线是海平面气压，箭头是 10 米风，星号标出北京。脚本结束时会打印
 选中的网格单元数量和图片路径。
 
-请特别留意：240 km 网格在东亚范围内只有很少的网格单元。图面看起来平滑，是因为绘图
-程序在离散点之间做了插值，并不表示模式突然拥有了更高的北京预报分辨率。
+东亚这一块在 240 km 网格上只有很少几个单元。图面平滑，是绘图程序在离散点之间插出来的。
+模式并没有突然给出更高的北京分辨率。
 
 ## 地图投影和数据坐标要分开设置
 
-脚本中有两套坐标设置：
+脚本里有两套坐标。
 
 ```python
 import cartopy.crs as ccrs
@@ -166,14 +164,14 @@ WRF 的 `map_proj=lambert` 决定模式用什么投影积分。MPAS 的动力过
 用 `tricontourf` 在三角形上填色。所谓 Delaunay 三角剖分，就是只根据点的位置重新连接
 三角形；它没有读取 MPAS 原生的 `verticesOnCell/cellsOnCell` 邻接关系。
 
-这种方法适合快速查看区域天气形势，但也有明显局限：
+这种方法适合快速查看区域天气形势，但也有明显局限。
 
 1. 插值只让图片连续，不满足守恒，也没有增加任何模式信息；
 2. 当前脚本在经纬度平面上做三角剖分，只适合本例这种不跨越日期变更线、也不靠近极区的
    区域；
 3. 做面积积分、降水收支或模式间定量比较时，不能从插值后的图片反读数值。
 
-不同目的应选不同办法：
+不同目的应选不同办法。
 
 - 快速看天气形势，可以画网格单元中心散点，或使用本课的 `tricontourf`；
 - 展示原生网格，应按 `verticesOnCell` 画出 Voronoi 多边形；
@@ -188,7 +186,7 @@ MPAS 三维模式变量 `u` 位于网格边上，只表示垂直于边的风速�
 并转换成地理坐标下的东西、南北分量。
 
 等压面风也是同样道理。先用 `ncdump -h` 确认文件中确实有 `uzonal_*` 和
-`umeridional_*`，不要凭印象猜变量名：
+`umeridional_*`，不要凭印象猜变量名。
 
 ```bash
 local/io-stack/bin/ncdump -h \
@@ -214,7 +212,7 @@ local/io-stack/bin/ncdump -h \
 3. 原始 `x4` 网格和旋转到北京的 `x4` 网格都有 163842 个网格单元，为什么不能混用坐标？
 4. 240 km 网格画出的图片为什么会出现连续的小尺度色斑？
 
-第 4 问若答不出来，就把原始散点和连续色斑放在一起看：中间多出来的细节来自绘图插值。
+第 4 问若讲不清，把原始散点和连续色斑放在一起看。中间多出来的细节来自绘图插值。
 模式没有为这些色斑重新算过天气。
 
 ## 延伸阅读

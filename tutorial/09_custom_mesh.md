@@ -1,29 +1,27 @@
 # 第 9 课：没有 Domain Wizard，MPAS 网格怎么选、怎么做
 
-在 WRF 里划区域，很多人习惯打开 WRF Domain Wizard，在地图上拖一个矩形，软件就替你写好
-`ref_lat/ref_lon`、`dx` 和 `e_we/e_sn`。换到 MPAS-A 以后，第一个问题往往是：同样的事情去
-哪里做？
+在 WRF 里划区域，很多人打开 Domain Wizard，在地图上拖一个矩形，软件写好
+`ref_lat/ref_lon`、`dx` 和 `e_we/e_sn`。MPAS-A 没有这个窗口。区域写在文本里，
+或者从现成的全球网格上裁。
 
-这一课要弄懂下面几件事。
+后面按这个顺序写。
 
-1. MPAS 有没有像 Domain Wizard 那样的图形界面？没有的话，靠什么划区域？
-2. 官方网格、旋转网格、区域裁剪和完全自制网格，各适合什么情况？
-3. 用 `create_region` 从全球网格裁出北京区域时，圆的半径到底指什么？
-4. 区域网格为什么还需要侧边界条件（LBC），要改哪些设置？
-5. 用 JIGSAW 和 MPAS-Tools 自己做一张变分辨率全球网格，要检查哪些量才能放心交给
-   `init_atmosphere`？
+1. 有没有 Domain Wizard 一类的图形界面，区域靠什么文件划出来？
+2. 官方网格、旋转、裁剪、完全自制，各在什么情况下用？
+3. `create_region` 从全球网格裁北京区域时，圆的半径量到哪一圈？
+4. 区域网格的侧边界（LBC）要改哪些开关？
+5. 用 JIGSAW 和 MPAS-Tools 做变分辨率全球网格，交给 `init_atmosphere` 之前核哪些量？
 
-本课所有命令都在本仓库的服务器上实际跑过，输出摘自终端记录。240 km 区域网格一直做到了初
-值、侧边界和 24 小时预报；旋转网格的区域和自制变分辨率网格只做到网格文件和分区文件，因为
-它们的静态场要从 WPS_GEOG 制作，下文会写明还差哪几步。
+命令都在本仓库这台服务器上跑过，输出摘自终端。240 km 区域网格做到了初值、侧边界
+和 24 小时预报。从旋转网格裁出的区域，以及自制的变分辨率网格，只到网格文件和分区。
+静态场要读 WPS_GEOG，下面会写明还差哪几步。
 
-阅读本课前，最好已经完成第 3 课（下载 `x1.10242` 并画网格）和第 8 课（把 92–25 km 网格旋
-转到北京）。网格下载和 `grid_rotate` 这里只简单回顾，不再重复。
+第 3 课的 `x1.10242` 和第 8 课把 92–25 km 网格转到北京，这里不再重讲。
 
 ## 先回答：有没有 MPAS 版的 Domain Wizard
 
-目前没有官方图形界面。WRF Domain Wizard 是 WPS 的 Java 图形界面；WRF Configuration
-Studio 是浏览器工具，也只面向 WRF。MPAS-A 官方给出的是几样命令行工具：
+目前没有官方图形界面。WRF Domain Wizard 是 WPS 的 Java 界面。WRF Configuration
+Studio 是浏览器工具，也只面向 WRF。MPAS-A 官方给的是命令行工具。
 
 | 需求 | 官方做法 | 本教程位置 |
 |---|---|---|
@@ -33,30 +31,27 @@ Studio 是浏览器工具，也只面向 WRF。MPAS-A 官方给出的是几样�
 | 加密区形状、大小都要自己定 | JIGSAW 生成网格；MPAS-Tools 提供 Python 封装 | 本课第二部分 |
 | 中纬度矩形区域、六边形大小一致 | MPAS-Tools 的 `hex_projection`（兰伯特投影上的正六边形） | 本课不演示 |
 
-UCAR 论坛上，MPAS 开发人员对“怎样做自定义区域网格”的回答也是这条路线：先下载全球网格，必
-要时旋转，再用 MPAS-Limited-Area 裁剪。MPAS-Limited-Area 自带一个 `-p/--plot` 选项，可以
-只画区域边界、不裁剪，算是最接近“预览”的功能；但在本课固定的版本和 NumPy 2.5 下，这个选
-项会报错（后文有记录）。我们改用自己的脚本把裁出的网格画出来检查。
+UCAR 论坛上，开发人员对自定义区域网格的回答也是这条路。先下载全球网格，需要时旋转，
+再用 MPAS-Limited-Area 裁。这个工具有 `-p/--plot`，只画边界、不裁网格。本课固定的
+版本配 NumPy 2.5 时，这个选项会报错，记录在后面。检查裁剪结果时改用仓库里的绘图脚本。
 
-MPAS 没有“地图投影 + 格距 + 格点数”这组参数。区域的形状写在
-`.pts` 文本文件里，网格单元从现成的全球网格里挑出来；网格疏密写在一个“各处希望多大网格”
-的函数里，再交给网格生成器。
+MPAS 没有 `ref_lat`、格距和格点数这一组参数。区域形状写在 `.pts` 里，网格单元从现成的
+全球网格里挑。疏密写成“各处希望多大网格”的函数，再交给网格生成器。
 
 ## 四条路线怎样选
 
-可以按下面的顺序问自己。
+选的时候我按这个顺序看。
 
-1. 官方准均匀网格的分辨率够不够用？够用就直接下载，什么都不用做；
-2. 需要局地加密，官方变分辨率网格的加密倍数和范围又刚好合适？用 `grid_rotate` 把加密区转
-   过去（第 8 课）；
-3. 只关心一块区域，并且有可靠的外部侧边界资料（例如 GFS）？用 `create_region` 裁剪。可以
-   裁准均匀网格，也可以裁旋转后的变分辨率网格；
-4. 以上都不合适，例如需要 60 km 到 3 km 的特殊过渡、多个加密区或者非圆形加密区，才考虑自
-   己生成网格。
+1. 官方准均匀网格的分辨率够用，就下载，不用再做网格；
+2. 需要局地加密，而且官方变分辨率网格的倍数和范围合适，用 `grid_rotate` 把加密区转过去
+   （第 8 课）；
+3. 只算一块区域，又有可靠的外部侧边界（例如 GFS），用 `create_region` 裁。源网格可以是
+   准均匀的，也可以是转过的变分辨率网格；
+4. 还不够，比如 60 km 收到 3 km、多个加密区，或者加密区不是圆，再自己生成。
 
-越往后，需要自己检查的东西越多。官方网格已经被很多人用过；自制网格出了问题，往往要等到
-`init_atmosphere` 崩溃时才发现。UCAR 论坛上已有多位用户报告，自制 JIGSAW 网格在制作静态
-场时出错，官方支持人员建议先换回“旋转 + 裁剪”的标准流程排查。
+官方网格已经被很多人用过。自制网格出问题，常要到 `init_atmosphere` 做静态场时才崩。
+UCAR 论坛上已有用户报告自制 JIGSAW 网格在这一步出错，官方支持人员建议先退回
+“旋转再裁剪”排查。
 
 ## 准备工具：Miniforge、MPAS-Tools 和 MPAS-Limited-Area
 
@@ -65,7 +60,7 @@ JIGSAW 和 `jigsawpy`，以及 MPAS-Tools 中的 `MpasMeshConverter.x`，分区�
 `gpmetis`。这些在 conda-forge 上都有现成的包，所以本课用 Miniforge 安装，全部放在 Git 不
 跟踪的 `local/` 和 `src/` 中，不影响第 7 课的 `work/venv-post`。
 
-在仓库根目录运行：
+在仓库根目录装工具并激活环境。
 
 ```bash
 ./install_mesh_tools.sh
@@ -134,10 +129,10 @@ meshes for MPAS-Atmosphere”一课附带的仓库，本课只用其中的 `mesh
 
 ## 第一部分：从全球网格裁出北京区域
 
-### `.pts` 文件就是“区域说明书”
+### `.pts` 写区域的形状和名字
 
-`create_region` 读两个输入：一个描述区域形状的 `.pts` 文本文件，一个全球 MPAS 网格
-（`grid.nc` 或 `static.nc`）。`.pts` 有四种写法：
+`create_region` 读两个输入。一个是描述区域形状的 `.pts`，一个是全球 MPAS 网格
+（`grid.nc` 或 `static.nc`）。`.pts` 有四种写法。
 
 | `Type:` | 需要的关键字 | 适合 |
 |---|---|---|
@@ -146,17 +141,17 @@ meshes for MPAS-Atmosphere”一课附带的仓库，本课只用其中的 `mesh
 | `custom` | `Point:` 区域内任一点；之后每行一个“纬度, 经度”顶点，逆时针排列 | 近似 WRF 矩形区域 |
 | `channel` | `ulat:`、`llat:` 上下纬度 | 热带带状区域 |
 
-`Name:` 决定输出文件名：从 `x1.10242.grid.nc` 裁剪得到 `Name.grid.nc`，从 `static.nc` 裁
-剪得到 `Name.static.nc`。注意经纬度顺序是“纬度在前”，与很多绘图库的 `(lon, lat)` 相反。
+`Name:` 决定输出文件名。从 `x1.10242.grid.nc` 裁得到 `Name.grid.nc`，从 `static.nc`
+裁得到 `Name.static.nc`。经纬度顺序是纬度在前，和很多绘图库的 `(lon, lat)` 相反。
 
-MPAS-Limited-Area 的说明特别提醒：从 `grid.nc` 裁剪时，区域必须是凸的，也不要在极区跨很
-大经度，否则 `init_atmosphere` 插值静态场时会出错；`channel` 最好只用于 `static.nc`。
+MPAS-Limited-Area 的说明写得很具体。从 `grid.nc` 裁时区域要是凸的，也不要在极区跨很大
+经度，否则 `init_atmosphere` 插值静态场会出错。`channel` 最好只用于 `static.nc`。
 
 ### 裁出半径 2000 km 的北京圆形区域
 
 `make_beijing_region.sh` 把写 `.pts` 和调用 `create_region` 放在一起，之后还会检查结果并
 用 `gpmetis` 分区。默认从第 3 课的 `x1.10242.grid.nc` 裁剪，圆心是北京
-`(39.9042°N, 116.4074°E)`，半径 2000 km：
+`(39.9042°N, 116.4074°E)`，半径 2000 km。
 
 ```bash
 ./make_beijing_region.sh
@@ -228,12 +223,12 @@ work/beijing_region_240km/
 `.part.8` 是 `gpmetis` 按 4 个和 8 个 MPI 进程分好的结果，需要别的进程数时用 `--ntasks`
 再生成。
 
-这一步最值得注意的是半径。`.pts` 里写的是 2000 km，`bdyMaskCell=0` 的内部网格单元也确实
-到 2116 km 为止；但 `create_region` 又在圆外加了 7 圈边界网格单元，最外圈离北京 3758
-km。MPAS-A 源码 `mpas_atm_boundaries.F` 中规定 `nRelaxZone = 5`、`nSpecZone = 2`，所以
-1–5 是松弛区，6–7 是指定区。240 km 网格的每一圈约 240 km，7 圈就多出 1600 多公里。换成 3
-km 网格，同样 7 圈只多出约 20 km。设计半径时，要让你关心的范围落在 `bdyMaskCell=0` 里，
-而且离松弛区还有一段距离。
+半径要单独看。`.pts` 里写的是 2000 km，`bdyMaskCell=0` 的内部网格单元到 2116 km
+为止。`create_region` 又在圆外加了 7 圈边界网格单元，最外圈离北京 3758 km。
+MPAS-A 源码 `mpas_atm_boundaries.F` 里 `nRelaxZone = 5`、`nSpecZone = 2`，所以
+1–5 是松弛区，6–7 是指定区。240 km 网格每一圈约 240 km，7 圈多出 1600 多公里。
+换成 3 km 网格，同样 7 圈只多出约 20 km。设计半径时，让关心的范围落在
+`bdyMaskCell=0` 里，并且离松弛区还有一段距离。
 
 ![从 x1.10242 裁出的北京区域：左为 bdyMaskCell 分区，右为从官方 static 裁出的地形](images/beijing_region_240km.png)
 
@@ -316,7 +311,7 @@ work/beijing_region_240km/
 
 ### 椭圆和多边形
 
-`configs/regions/` 中另外放了一个椭圆和一个四边形示例，可以直接交给 `create_region`：
+`configs/regions/` 中另外放了一个椭圆和一个四边形示例，可以直接交给 `create_region`。
 
 ```bash
 mkdir -p work/region_shapes && cd work/region_shapes
@@ -363,7 +358,7 @@ work/region_shapes/
 要一个类似 WRF 的矩形区域，可以从这个文件改起，但要记住球面上“纬度、经度相等的四边形”并
 不是等面积的矩形，高纬度一侧会更窄。
 
-`-p` 预览选项在本课的环境中会失败：
+`-p` 预览选项在本课的环境中会失败。
 
 ```console
 $ cd work/region_shapes
@@ -381,7 +376,7 @@ $ cd ../..
 
 官方更推荐的“局地加密 + 区域”做法，是先用 `grid_rotate` 旋转变分辨率网格，再用
 `create_region` 裁剪。第 8 课已经得到 `beijing.x4.163842.grid.nc`，同一个脚本可以直接
-用：
+用。
 
 ```bash
 ./make_beijing_region.sh \
@@ -447,7 +442,7 @@ work/beijing_region_x4/
 ### 用区域网格跑 24 小时预报
 
 有了区域网格，还不能像全球那样只做一个 `init.nc` 就开始积分。MPAS-A 用户指南第 8.2 节列
-出了区域模拟与全球模拟的三处不同：
+出了区域模拟与全球模拟的三处不同。
 
 1. 制作初值时，在 `namelist.init_atmosphere` 中设 `config_blend_bdy_terrain = true`，让
    边界附近的模式地形与驱动资料的地形混合；
@@ -473,7 +468,7 @@ work/beijing_region_x4/
 `run_beijing_region_case.sh`。它沿用第 4 至 6 课全球案例目录中的 `FILE:*`、
 `namelist.init_atmosphere` 和 `namelist.atmosphere`，只用 `sed` 改上面三处设置和分区文件
 前缀，静态场直接用上一步裁出的 `beijing_circle.static.nc`，所以全程不读 WPS_GEOG。默认用
-4 个 MPI 进程，从 2026-10-15 00 UTC 积分 24 小时：
+4 个 MPI 进程，从 2026-10-15 00 UTC 积分 24 小时。
 
 ```bash
 ./run_beijing_region_case.sh init
@@ -538,7 +533,7 @@ $ grep -h WARNING work/beijing_region_240km_run/log.forecast.out | sort | uniq -
 29.8 s。预报日志中 `time integration` 共 72 次，即 `config_dt = 1200` s 积分 24 小时，计
 时 20.1 s。
 
-新增的文件都在一个目录里：
+新增的文件都在一个目录里。
 
 ```text
 work/beijing_region_240km_run/
@@ -568,7 +563,7 @@ work/beijing_region_240km_run/
 ### 和全球案例对照
 
 再拿全球案例同一时刻的 `diag` 对照。区域网格的单元编号已经重排，新脚本
-`tools/compare_region_global.py` 按网格中心坐标逐个匹配：
+`tools/compare_region_global.py` 按网格中心坐标逐个匹配。
 
 ```bash
 for t in 2026-10-15_12 2026-10-16_00; do
@@ -609,8 +604,8 @@ mslp [hPa]: NaN 0, nearest cell region 1021.54 global 1020.83; |region-global| i
 
 ### 先想清楚：我们要描述的是“网格大小函数”
 
-JIGSAW 不认识“北京”或“加密区”。它只需要一个函数：地球上每个位置希望多大的网格。本课用的
-是 NCAR 培训课里最简单的圆形加密写法，按到北京的大圆距离 `r` 分三段：
+JIGSAW 不认“北京”或“加密区”。它要的是一个函数，地球上每个位置希望多大的网格。
+本课用 NCAR 培训课里最简单的圆形加密，按到北京的大圆距离 `r` 分三段。
 
 ```text
 r < 1500 km             60 km
@@ -635,7 +630,7 @@ python tools/make_custom_mesh.py
 ls -lh work/beijing_vr_240-60km
 ```
 
-JIGSAW 会打印很长的日志，下面省略了配置清单和中间的迭代表：
+JIGSAW 会打印很长的日志，下面省略了配置清单和中间的迭代表。
 
 ```console
 $ python tools/make_custom_mesh.py
@@ -708,7 +703,7 @@ work/beijing_vr_240-60km/
 ### 这一步留下了什么
 
 `base_mesh.nc` 是 MPAS-Tools 的原始输出，`beijing_vr_240-60km.grid.nc` 才是交给 MPAS-A
-的网格。脚本额外做的转换有三项，每一项都对应 MPAS-A 源码中的要求：
+的网格。脚本额外做的转换有三项，每一项都对应 MPAS-A 源码中的要求。
 
 1. **单位球**。MPAS-Tools 按地球半径写坐标，`base_mesh.nc` 的 `sphere_radius` 是
    6371229。MPAS-A 的官方网格都在单位球上；`init_atmosphere` 的 `mpas_init_atm_core.F`
@@ -728,7 +723,7 @@ work/beijing_vr_240-60km/
 ### 检查网格质量
 
 只看 `ncdump` 能打开文件，并不能说明网格可用。用培训课仓库中的 `mesh_quality.py` 检查，
-再画出网格大小：
+再画出网格大小。
 
 ```bash
 python src/mpas_jigsaw_tutorial/mesh_quality.py work/beijing_vr_240-60km/base_mesh.nc
@@ -827,7 +822,7 @@ km，比名义 60 km 小，与第 8 课 25 km 网格得到约 20 km 的情况类
 ### 分区
 
 自制网格没有现成的 `.part.N`，`MpasMeshConverter.x` 只写了 `graph.info`。用 `gpmetis` 生
-成：
+成。
 
 ```bash
 cd work/beijing_vr_240-60km
@@ -886,7 +881,7 @@ MPAS 8.4.0 起还可以链接 PT-Scotch，在运行时自动分区，不再需�
 
 ### 网格之后还要做什么
 
-这张网格目前只到“网格 + 分区”这一步。要用它预报，还需要：
+这张网格目前只到网格和分区。要用它预报，还要做这三步。
 
 1. 用 `init_atmosphere_model`（单进程）读 `beijing_vr_240-60km.grid.nc` 和 WPS_GEOG，做
    `static.nc`。与第 8 课一样，当前服务器账号读不了共享 WPS_GEOG 的部分目录，这一步做不

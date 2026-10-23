@@ -1,13 +1,11 @@
 # 第 7 课：从 MPAS 输出中找到北京
 
-用 WRF 提取站点时，我们通常先找最近的 `south_north, west_east`。到了 MPAS，规则的
-二维下标消失了，变量沿 `nCells` 这一维存放。数组序号本身不带经纬度；要找到北京，还得
-同时读取 `latCell/lonCell`。
+用 WRF 抽站点，通常先找最近的 `south_north, west_east`。MPAS 没有这组二维下标，
+地面变量沿 `nCells` 排。数组序号本身不带经纬度。要找北京，得同时读 `latCell/lonCell`。
 
 ## 动手前先检查文件和 Python 环境
 
-下面的命令都从仓库根目录运行。请先完成第 6 课的 240 km 教学预报，并确认初值和诊断
-输出确实存在：
+命令都从仓库根目录跑。先有第 6 课的 240 km 预报，并确认初值和诊断文件在。
 
 ```bash
 test -s work/beijing_240km_2026101500/x1.10242.init.nc
@@ -15,8 +13,8 @@ ls -lh work/beijing_240km_2026101500/x1.10242.init.nc \
   work/beijing_240km_2026101500/diag.2026-10-{15,16}_00.00.00.nc
 ```
 
-当前案例的真实终端输出如下。`init.nc` 是坐标和初始状态来源，两个 `diag` 分别是起报和
-F024 时刻；中间还有 7 个三小时时次，这里省略：
+当前案例的 `ls` 是这样。`init.nc` 提供坐标和初始状态，两个 `diag` 是起报和 F024。
+中间还有 7 个三小时时次，这里省掉。
 
 ```console
 $ ls -lh work/beijing_240km_2026101500/x1.10242.init.nc \
@@ -41,7 +39,7 @@ python -m pip install numpy netCDF4 matplotlib
 python -c 'import numpy, netCDF4, matplotlib; print("Python post-processing imports: OK")'
 ```
 
-成功时最后一条只打印：
+成功时最后一条只打一行。
 
 ```console
 $ python -c 'import numpy, netCDF4, matplotlib; print("Python post-processing imports: OK")'
@@ -57,7 +55,7 @@ Python post-processing imports: OK
 ## 一个下标为什么不能到处用
 
 MPAS-A 采用 C 网格交错。英文资料把网格单元称为 cell，边称为 edge，顶点称为 vertex。
-这三类位置各有各的数组：
+这三类位置各有各的数组。
 
 ```text
 顶点 -------- 边 -------- 顶点
@@ -80,7 +78,7 @@ WRF 常见的地面变量维度是 `(Time, south_north, west_east)`；本例中�
 ## `history` 和 `diag` 里究竟有什么
 
 MPAS 的输出由输出流配置文件 `streams.atmosphere` 和变量清单 `stream_list.*` 决定。
-文件名只是当前配置下的习惯，不能永远代表固定内容。本例的设置如下。
+文件名只是当前配置下的习惯，不能当成固定内容。本例的三类输出是这些。
 
 | 文件 | 本例写出的内容 | 输出间隔 | 常见用途 |
 |---|---|---:|---|
@@ -88,7 +86,7 @@ MPAS 的输出由输出流配置文件 `streams.atmosphere` 和变量清单 `str
 | `diag.*.nc` | 2 米温度、10 米风、海平面气压、等压面场和降水等 | 3 小时 | 高频天气诊断 |
 | `restart.*.nc` | 继续积分所需的完整状态 | 24 小时 | 断点续算，不是普通绘图文件 |
 
-先查看配置和文件头，再决定读取哪个变量：
+先看配置和文件头，再决定读哪个变量。
 
 ```bash
 sed -n '1,35p' work/beijing_240km_2026101500/streams.atmosphere | \
@@ -100,7 +98,7 @@ local/io-stack/bin/ncdump -h \
   grep -E '^[[:space:]]*(Time =|nCells =|double (mslp|rainc|rainnc|u10|v10|t2m)\()'
 ```
 
-本案例中，与后文直接相关的真实内容是：
+和后面直接有关的几行是这些。
 
 ```console
 $ sed -n '1,35p' work/beijing_240km_2026101500/streams.atmosphere | grep -n 'output_interval'
@@ -148,8 +146,8 @@ python tools/analyze_beijing.py work/beijing_240km_2026101500
 “大小相同、实际却是另一张网格”的误配。老文件若没有这两项信息，脚本只能检查网格
 单元数并发出警告，这时还应比较网格文件校验值。
 
-本例的实际输出如下。开头的警告说明 diagnostics 没有分桶计数器，并不表示这次短案例
-失败；若检测到累计量回卷，脚本会停止：
+本例实际打出这些。开头的警告是说 diagnostics 没有分桶计数器，这次短案例并没有
+因此失败。若检测到累计量回卷，脚本会停。
 
 ```console
 $ python tools/analyze_beijing.py work/beijing_240km_2026101500
@@ -159,7 +157,7 @@ wrote work/beijing_240km_2026101500/beijing_nearest_cell.csv
 wrote work/beijing_240km_2026101500/beijing_nearest_cell.png
 ```
 
-再检查生成的表格和图片：
+再看生成的表和图。
 
 ```bash
 ls -lh work/beijing_240km_2026101500/beijing_nearest_cell.{csv,png}
@@ -167,7 +165,7 @@ cut -d, -f1,2,3,4,5,6,7,12 \
   work/beijing_240km_2026101500/beijing_nearest_cell.csv | head -n 3
 ```
 
-当前目录和 CSV 关键内容为：
+目录和 CSV 的关键几列是这些。
 
 ```console
 $ ls -lh work/beijing_240km_2026101500/beijing_nearest_cell.{csv,png}
@@ -184,25 +182,24 @@ CSV 和 PNG 都可以重新生成。换站点用 `--latitude/--longitude`，换�
 `--output-prefix`，有多个初值文件时用 `--grid-file`。若数值或图片不合适，应调整输入或
 参数后重跑脚本。
 
-`3150` 是从 0 开始的 Python 数组下标；在这份文件里，它恰好对应全局编号 `3151`。
-最近的网格单元中心距北京仍有约 130 km。这也提醒我们：240 km 网格适合跑通流程，却不
-适合做精细的北京天气预报。
+`3150` 是从 0 开始的 Python 下标。在这份文件里它正好对应全局编号 `3151`。
+最近的网格单元中心离北京还有约 130 km。240 km 网格够把流程跑通，做不了精细的
+北京预报。
 
 ## 累计降水最容易踩的坑
 
-`rainc` 是累计对流降水，`rainnc` 是累计网格尺度降水，单位都是毫米。在计数没有回卷时，
-累计总降水就是：
+`rainc` 是累计对流降水，`rainnc` 是累计网格尺度降水，单位都是毫米。计数没有回卷时，
+累计总降水是这两项相加。
 
 ```text
 rainc + rainnc
 ```
 
-但 MPAS 默认把 `config_bucket_rainc` 和 `config_bucket_rainnc` 都设为 100 mm。只要
-`config_bucket_update` 不是 `'none'`，模式就会按它设定的间隔检查：累计量超过阈值后，
-相应变量会减去一个 100 mm，并把 `i_rainc` 或 `i_rainnc` 加 1。这套做法可以理解为
-“分桶计数”。`config_bucket_update` 的默认值是 `'none'`，本例脚本沿用官方默认
-namelist 中的这一项，所以这次预报不会触发分桶回卷。如果输出文件包含两个计数变量，
-完整累计量应恢复为：
+但 MPAS 默认把 `config_bucket_rainc` 和 `config_bucket_rainnc` 都设为 100 mm。
+`config_bucket_update` 不是 `'none'` 时，模式按它设定的间隔检查。累计量超过阈值后，
+相应变量减去一个 100 mm，并把 `i_rainc` 或 `i_rainnc` 加 1。这套计数可以叫分桶。
+`config_bucket_update` 的默认值是 `'none'`。本例脚本沿用官方默认 namelist 的这一项，
+所以这次预报不会做分桶回卷。输出里如果有两个计数变量，完整累计量按下面两行恢复。
 
 ```text
 total = (rainc  + config_bucket_rainc  * i_rainc)
@@ -234,7 +231,7 @@ find work/beijing_240km_2026101500 -maxdepth 1 -name 'history.*.nc' | wc -l
 wc -l work/beijing_240km_2026101500/beijing_nearest_cell.csv
 ```
 
-当前真实输出是：
+当前这台机器上的计数是。
 
 ```console
 $ find work/beijing_240km_2026101500 -maxdepth 1 -name 'diag.*.nc' | wc -l
@@ -245,7 +242,7 @@ $ wc -l work/beijing_240km_2026101500/beijing_nearest_cell.csv
 10 work/beijing_240km_2026101500/beijing_nearest_cell.csv
 ```
 
-应该看到以下结果：
+应对上这些。
 
 - `diag` 有 9 个三小时时次，`history` 有 5 个六小时时次；
 - CSV 共 10 行，即 1 行表头加 9 个时次；网格单元下标、全局编号和坐标始终不变；
