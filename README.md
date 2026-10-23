@@ -20,6 +20,7 @@
 | [7](tutorial/07_output_and_beijing_timeseries.md) | 输出诊断 | `nCells/nEdges/nVertices` 如何取数？ |
 | [8](tutorial/08_variable_resolution_mesh.md) | 北京加密网格 | 如何设置真正的“北京中心”？ |
 | [9](tutorial/09_cartopy_visualization.md) | Cartopy | 如何正确投影非结构网格？ |
+| [10](tutorial/10_custom_mesh.md) | 选择与制作网格 | 没有 Domain Wizard，区域该怎么划？ |
 
 ## 先用 240 km 粗网格跑通一遍
 

@@ -26,7 +26,7 @@ GFS GRIB2 --ungrib.exe + Vtable.GFS--> FILE:YYYY-MM-DD_HH
 ```
 
 用 WRF 的经验看，分岔点就在 `ungrib.exe` 后面。WRF 接着运行 `metgrid.exe`；MPAS 则
-由 `init_atmosphere_model` 完成水平插值和初值制作。因此，换一张 MPAS 网格，不必重新
+由 `init_atmosphere_model` 完成水平插值和初值制作。所以换一张 MPAS 网格，不必重新
 运行 `ungrib.exe`；换了 GFS 起报时次或资料产品，通常就要重新运行。
 
 本例不会调用 WPS 的另外两个程序。`geogrid.exe` 用来制作 WRF 的规则区域网格，
@@ -148,7 +148,7 @@ build/、downloads/             # 可重建的编译目录和源码缓存，可�
 ```
 
 脚本先下载并解压官方 240 km 网格包，再检查 WPS 程序、GFS 目录和九个 GFS 文件，最后
-准备 `GRIBFILE.*`、`Vtable`、`ungrib.exe` 和一份最简 `namelist.wps`。因此，即使后面的
+准备 `GRIBFILE.*`、`Vtable`、`ungrib.exe` 和一份最简 `namelist.wps`。所以即使后面的
 GFS 检查失败，`downloads/` 和案例目录中也可能已经留下网格文件；修正资料路径后可以复用。
 
 ### 这一步留下了什么
@@ -364,7 +364,7 @@ FIELD = VV
 2026-10-15 00。高空的风、温、湿，地面气压和陆面变量也应齐全。即使九个文件一个不少，
 只要缺少制作初值所需的字段，也不能继续。
 
-这里多提醒一句：第 6 课制作起报初值时，只会读取 `FILE:2026-10-15_00`。其余八个时次
+第 6 课制作起报初值时，只会读取 `FILE:2026-10-15_00`。其余八个时次
 留给后续的海表温度（SST）、海冰更新和有限区域侧边界。第 5 课会说明这些任务分别怎样
 设置。现在一次解码齐全，是为了以后接着做时不用返工。
 

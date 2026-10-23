@@ -197,9 +197,12 @@ CSV 和 PNG 都可以重新生成。换站点用 `--latitude/--longitude`，换�
 rainc + rainnc
 ```
 
-但 MPAS 默认把 `config_bucket_rainc` 和 `config_bucket_rainnc` 都设为 100 mm。累计量达到
-阈值后，相应变量会减去一个 100 mm，并把 `i_rainc` 或 `i_rainnc` 加 1。这套做法可以
-理解为“分桶计数”。如果输出文件包含两个计数变量，完整累计量应恢复为：
+但 MPAS 默认把 `config_bucket_rainc` 和 `config_bucket_rainnc` 都设为 100 mm。只要
+`config_bucket_update` 不是 `'none'`，模式就会按它设定的间隔检查：累计量超过阈值后，
+相应变量会减去一个 100 mm，并把 `i_rainc` 或 `i_rainnc` 加 1。这套做法可以理解为
+“分桶计数”。`config_bucket_update` 的默认值是 `'none'`，本例脚本沿用官方默认
+namelist 中的这一项，所以这次预报不会触发分桶回卷。如果输出文件包含两个计数变量，
+完整累计量应恢复为：
 
 ```text
 total = (rainc  + config_bucket_rainc  * i_rainc)
@@ -208,9 +211,9 @@ total = (rainc  + config_bucket_rainc  * i_rainc)
 
 本例的诊断变量清单没有输出 `i_rainc/i_rainnc`。一旦发生回卷，便无法准确恢复完整累计量。
 教学脚本会明确警告，并逐个核对输出有效时刻变量 `xtime` 是否保持 3 小时间隔、是否来自
-同一次冷启动；只要发现任一降水分量下降，脚本就会停止，而不是把负值强行改成 0。将来若在输出流中加入
-计数变量，脚本会自动按上式恢复累计降水。正常的断点续算会接着累计，不能一概当作重新
-归零。
+同一次冷启动；只要发现任一降水分量下降，脚本就会停止，而不是把负值强行改成 0。将来
+若在输出流中加入计数变量，脚本会自动按上式恢复累计降水。正常的断点续算会接着累计，
+不能一概当作重新归零。
 
 第一个输出时刻没有前一时次可减，所以 CSV 中第一个时段增量留空。若你的输出间隔不是
 3 小时，请通过 `--expected-interval-hours` 指定。正式做降水统计时，最好始终输出并检查

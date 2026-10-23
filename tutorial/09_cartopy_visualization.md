@@ -5,7 +5,7 @@ WRF 输出带有规则的二维下标，常用的画图程序可以直接沿着 
 又有多少是模式真正算出的信息？这一课把这两件事讲清楚。
 
 我们继续使用第 6 课已经跑通的 `x1.10242` 全球网格，名义分辨率约 240 km。第 8 课那张
-北京 92—25 km 网格目前只完成了旋转；由于共享地理资料的读取权限尚未解决，它还没有
+北京 92–25 km 网格目前只完成了旋转；由于共享地理资料的读取权限尚未解决，它还没有
 静态文件、初值和预报结果。先用来源明确的 240 km 结果练习绘图，可以把绘图问题与
 初始化问题分开排查。
 
@@ -153,7 +153,7 @@ projection = ccrs.LambertConformal(
 ```
 
 `data_crs` 表示输入的 `lonCell/latCell` 是普通经纬度；`projection` 表示最后把地图画成
-什么投影。向 `tricontourf`、`contour`、`quiver` 或 `scatter` 传入数据时，还要写
+什么投影。向 `tricontourf`、`tricontour`、`quiver` 或 `scatter` 传入数据时，还要写
 `transform=data_crs`，告诉 Cartopy 如何解释输入坐标。若省略这一项，Cartopy 可能把
 经纬度数值当成 Lambert 投影平面上的坐标，图就会跑到错误位置。
 
