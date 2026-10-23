@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Limited-area MPAS-A run on a create_region mesh (lesson 10):
+# Limited-area MPAS-A run on a create_region mesh (lesson 9):
 #   init : config_init_case=7 + config_blend_bdy_terrain=true -> NAME.init.nc
 #   lbc  : config_init_case=9 -> lbc.*.nc every config_fg_interval
 #   run  : config_apply_lbcs=true, lbc_in every 3 h

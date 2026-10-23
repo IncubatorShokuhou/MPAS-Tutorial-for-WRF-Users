@@ -1,19 +1,18 @@
 # 第 1 课：用 GCC/GFortran 编译 MPAS
 
-这一课要从源码编译 MPI、I/O 依赖库和 MPAS-A 8.4.2。所有内容都装在项目目录里，不借用
-机器上现成的 MPI。这样换到另一台服务器时，只要重新执行安装脚本，就能得到来源清楚、
-彼此匹配的一套环境。
+MPI、I/O 库和 MPAS-A 8.4.2 都从源码装进项目目录。机器上如果已经有 MPI，这次也不用。
+换服务器时重跑安装脚本，编译器和库仍是同一套。
 
 ## 动手前先检查系统工具
 
-请先读完第 0 课，再检查 GCC、G++、GFortran、CMake、Make、curl、tar 和 Git：
+第 0 课的流程看过之后，先确认 GCC、G++、GFortran、CMake、Make、curl、tar、Git
+都能找到。
 
 ```bash
 command -v gcc g++ gfortran cmake make curl tar git
 ```
 
-每个命令都应该返回一条路径。缺哪一个，就先请管理员安装哪一个，不要等到几个小时的
-编译中途才发现工具不全。
+每个命令应打出一条路径。缺哪个就先装哪个。编译要几个小时，中途才发现缺工具很亏。
 
 ### 这一步留下了什么
 
@@ -31,10 +30,10 @@ command -v gcc g++ gfortran cmake make curl tar git
 /usr/bin/git
 ```
 
-`command -v` 只查询命令，本步不会生成文件。若某一行缺失，请先安装相应工具；编译器
-位于非标准目录时，可在稍后的安装命令中用 `--cc/--cxx/--fc` 指定完整路径。
+`command -v` 只查命令，这一步不写文件。缺行就先装工具。编译器不在默认路径时，
+后面的安装命令用 `--cc/--cxx/--fc` 写绝对路径。
 
-编译完成后，最重要的三个文件是：
+编完以后，先看这三个文件在不在。
 
 ```text
 local/io-stack/bin/mpirun
@@ -44,8 +43,8 @@ local/mpas-8.4.2/bin/mpas_atmosphere
 
 ## 为什么会得到两个 MPAS 程序
 
-MPAS 有一套公共框架，具体求解什么问题，由挂在框架上的核心程序（core）决定。本项目
-编译大气模式时，会生成两个可执行程序：
+MPAS 有一套公共框架。解哪类方程，由挂上去的核心程序（core）决定。编大气模式时
+得到两个可执行文件。
 
 - `mpas_init_atmosphere`：读取网格、静态资料和外部气象资料，制作模式初值；
 - `mpas_atmosphere`：读取初值并向前积分，作用大致相当于 WRF 的 `wrf.exe`。
@@ -57,11 +56,11 @@ MPAS 有一套公共框架，具体求解什么问题，由挂在框架上的核
 `ungrib.exe` 仍由 WPS 提供。
 
 案例目录里还会出现 `init_atmosphere_model` 和 `atmosphere_model`。它们只是上面两个
-安装文件的软链接，采用了官方文档常见的名称，并不是另外编译出的程序。
+安装文件的软链接，采用了官方文档常见的名称。
 
 ## 为什么这些依赖库要一起编译
 
-完整的编译顺序如下：
+依赖按这个顺序编。
 
 ```text
 OpenMPI → zlib → HDF5 → PnetCDF → netCDF-C → netCDF-Fortran → PIO → MPAS-A
@@ -69,17 +68,17 @@ OpenMPI → zlib → HDF5 → PnetCDF → netCDF-C → netCDF-Fortran → PIO �
 
 MPAS 把并行读写任务交给 PIO（ParallelIO，并行 I/O 调度库）。PIO 可以选用
 netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信和并行文件访问。
-所以，MPAS 绝不只依赖 PnetCDF。第 2 课会逐层说明这些库的作用。
+所以 netCDF-4/HDF5 和 PnetCDF 都要留在依赖里。第 2 课会逐层说明这些库的作用。
 
 这里还要认识一个容易引起麻烦的词：ABI，即二进制接口。它规定编译后的程序怎样传递
 参数、怎样组织内存。两个库即使名字和版本看起来都对，只要分别用了不同的 Fortran
-编译器或不同的 MPI，仍可能在链接或运行时出错。因此，这些库必须用同一套编译器和
+编译器或不同的 MPI，仍可能在链接或运行时出错。这些库因此必须用同一套编译器和
 同一套 MPI 依次构建。
 
 ## 开始安装
 
-在仓库根目录执行。下面三种写法是同一个步骤的三种选择，不要依次全跑一遍。第一次安装
-若希望逐项确认，就用交互方式：
+在仓库根目录选一种写法。三种是同一件事，不要连着跑三遍。第一次想逐项看提示，
+用交互方式。
 
 ```bash
 ./install_mpas.sh
@@ -88,7 +87,7 @@ netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信�
 交互提示出现后一路按 Enter，会采用以下默认目录：`local/` 用来安装软件，`build/`
 保存编译目录，`downloads/` 保存下载文件，`MPAS-Model/` 保存 MPAS 源码。
 
-如果不想逐项确认，可以这样运行：
+不想逐项确认时，加 `-y`。
 
 ```bash
 ./install_mpas.sh -y
@@ -97,7 +96,7 @@ netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信�
 脚本默认用全部逻辑 CPU 并行编译。请在计算节点运行，不要占满共用登录节点。`--jobs`
 控制的是编译时同时执行多少个任务，与以后预报使用多少个 MPI 进程没有关系。
 
-下面这个例子把依赖库、源码和 MPAS 安装到指定目录，并用 32 路并行编译：
+依赖、源码和 MPAS 要装到别的目录，并且用 32 路编译时，写成这样。
 
 ```bash
 ./install_mpas.sh -y --io-prefix /data/mpas/deps \
@@ -114,13 +113,14 @@ netCDF-4/HDF5 或 PnetCDF 作为文件读写后端，MPI 则负责进程通信�
 
 上游提供 CMake 构建方式的库优先使用 CMake；OpenMPI 和 PnetCDF 则按照上游给出的
 `configure`、`make` 步骤编译。脚本默认只做一次两进程 MPI 启动检查。若加上
-`--run-tests`，还会运行依赖库自身的测试，所需时间会明显增加。若准备继续学习第 4 课，
+`--run-tests`，还会运行依赖库自身的测试，所需时间会明显增加。继续学第 4 课时，
 可以加 `--with-wps`，同时安装 `ungrib.exe`。
 
 ### 这一步留下了什么
 
-完整构建会打印很多 CMake 和 Make 信息，不必逐行照抄。真正值得盯住的是末尾的安装摘要。
-下面是已经成功安装过一次后，再次执行脚本时的末尾：
+CMake 和 Make 的输出很长，盯末尾的安装摘要就够。下面是装成功之后再跑一次脚本
+看到的结尾。第一次运行没有 `already installed`，会刷很多 `Built target` 和
+`Installing`。
 
 ```text
 I/O stack installation complete: .../MPAS_tutorial/local/io-stack
@@ -132,9 +132,8 @@ MPAS source:  .../MPAS_tutorial/MPAS-Model
 MPAS install: .../MPAS_tutorial/local/mpas-8.4.2
 ```
 
-第一次运行不会出现 `already installed`，而会看到许多 `Built target` 和 `Installing`；
-只要最后仍出现 `Installation complete`，并且下列可执行程序确实存在，就说明这一步完成。
-默认目录会变成下面这样：
+末尾有 `Installation complete`，并且 `local/io-stack/bin/mpirun` 和
+`local/mpas-8.4.2/bin` 里的两个 MPAS 程序都在，这一步就算完成。默认目录长这样。
 
 ```text
 MPAS_tutorial/
@@ -155,7 +154,7 @@ MPAS_tutorial/
         └── share/MPAS/        # 默认 namelist、streams 和物理查找表
 ```
 
-安装目录中的 namelist 是上游默认模板，开头看起来像这样：
+安装目录里的 namelist 是上游模板。开头几行是默认日期和时间步。
 
 ```fortran
 &nhyd_model
@@ -171,7 +170,7 @@ MPAS_tutorial/
 
 ## 编译结束后不要急着往下走
 
-先让当前终端使用刚编译好的库：
+先让当前终端用刚编好的库。
 
 ```bash
 export IO_ROOT="$PWD/local/io-stack"
@@ -193,8 +192,8 @@ ldd local/mpas-8.4.2/bin/mpas_atmosphere | grep -E 'local/io-stack|not found'
 
 ### 这一步留下了什么
 
-本项目实测的关键输出如下。内存地址每次都会变化，所以不必逐字相同；路径落在当前项目
-的 `local/io-stack` 才是重点。
+本机这次的关键行抄在下面。内存地址每次都变，对的是路径落在本仓库的
+`local/io-stack`。
 
 ```text
 .../MPAS_tutorial/local/io-stack/bin/mpirun
@@ -215,9 +214,8 @@ libhdf5.so.310   => .../local/io-stack/lib/libhdf5.so.310 (...)
 
 ## 用自己的话讲一遍
 
-1. 为什么换机器时不能只复制一个 `mpas_atmosphere`？
-2. 两个 MPAS 可执行程序为什么不是调试版和正式版？
-3. 为什么 `--jobs 64` 不等于预报时使用 64 个 MPI 进程？
+1. 为什么换机器时不能只拷一个 `mpas_atmosphere`？
+2. 两个 MPAS 程序为什么不是调试版和正式版？
+3. 为什么 `--jobs 64` 不是预报用 64 个 MPI 进程？
 
-回答时，把“编译时用了什么”“运行时加载什么”“预报时启动多少进程”分开，不要把三件事
-混在一起。
+三问分开答。先说编译时链了什么，再说运行时加载什么，最后是预报起多少进程。

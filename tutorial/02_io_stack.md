@@ -1,10 +1,10 @@
 # 第 2 课：MPAS 的并行 I/O 到底怎样工作
 
-第 1 课执行 `install_mpas.sh` 时，已经调用过 `install_io_stack.sh`。如果安装顺利，这一课
-不必再编译一遍。我们要做的是把各层依赖关系理顺。以后换机器，或者碰到“编译成功、
-运行却找错库”的问题，你就知道应该从哪一层查起。
+第 1 课的 `install_mpas.sh` 已经调过 `install_io_stack.sh`。那次装成功的话，
+这一课不用再编。要做的是把各层库的关系理顺。换机器，或者“编译过了、运行却找错库”，
+从哪一层查就清楚了。
 
-如果只想给其他 MPAS 源码准备一套独立的 I/O 依赖，也可以单独运行本课的安装脚本。
+只给别的 MPAS 源码准备一套 I/O 库时，可以单独跑本课的安装脚本。
 
 ## 先认清每个库负责什么
 
@@ -18,28 +18,28 @@
 - **输入输出配置（streams）**：安排 MPAS 读写哪些文件、何时读写。它还会指定某类文件采用
   哪个后端，第 5 课再讲具体写法。
 
-一次写文件的过程可以画成这样：
+一次写文件，数据按这个顺序走。
 
 ```text
 MPAS 变量 → PIO 组织读写 → netCDF-4/HDF5  ┐
                          └→ PnetCDF          ┴→ MPI-IO → 文件系统
 ```
 
-netCDF-4/HDF5 和 PnetCDF 是两条可选路径，不是说同一份文件一定要先后穿过两者。我们把
+netCDF-4/HDF5 和 PnetCDF 是两条可选路径。同一份文件只走其中一条。我们把
 它们都编译好，是为了让不同的输入输出配置可以选择合适的文件格式。无论选哪一条路，
 所有并行库都必须使用项目自己编译的同一套 OpenMPI。
 
 ## 单独安装 I/O 依赖
 
-系统需要预先装好 GCC、G++、GFortran、CMake、Make、curl 和 tar。正式编译前，先在仓库
-根目录做一次预演（dry run）：
+机器上要先有 GCC、G++、GFortran、CMake、Make、curl 和 tar。正式编译前，在仓库
+根目录做一次预演（dry run）。
 
 ```bash
 ./install_io_stack.sh --dry-run
 ```
 
-它先确认 GCC、G++、GFortran 命令存在，再打印计划；不会下载、创建目录或编译。本机实测
-输出如下：
+脚本先确认 GCC、G++、GFortran 在，再打印计划。不下载，不建目录，也不编译。
+本机预演打出这些行。
 
 ### 这一步留下了什么
 
@@ -55,21 +55,21 @@ MPAS I/O stack configuration
 预演不生成任何文件。路径或并行度不合适，就调整命令行里的 `--prefix`、`--build-dir`、
 编译器路径或 `--jobs`。它还不会检查磁盘权限，正式安装前仍要确认目标目录可写。
 
-计划无误后，再从下面三种安装写法中选一种。无参数运行会进入交互模式，一路按 Enter
-采用默认值：
+计划没问题，再从三种安装写法里选一种。不带参数会进交互模式，一路回车就是
+默认目录。
 
 ```bash
 ./install_io_stack.sh
 ```
 
-默认设置是：
+默认落在这些路径上。
 
 - 安装目录：`local/io-stack/`
 - 下载缓存：`downloads/`
 - 源码和编译目录：`build/io-stack/`
 - 编译并行度：当前机器的全部逻辑 CPU
 
-无人值守安装可以这样写：
+不想交互、又要换前缀和并行度时，写成这样。
 
 ```bash
 ./install_io_stack.sh -y --prefix /scratch/$USER/mpas-io -j 64
@@ -79,7 +79,7 @@ MPAS I/O stack configuration
 `/scratch/$USER/mpas-io`。本教程案例脚本仍按默认的 `local/io-stack` 查找依赖；准备继续
 逐课运行时，优先使用默认目录。
 
-也可以明确指定三种编译器：
+编译器不在默认路径时，三个都写上。
 
 ```bash
 ./install_io_stack.sh -y \
@@ -92,8 +92,8 @@ MPAS I/O stack configuration
 
 ### 这一步留下了什么
 
-成功安装的末尾会明确给出统一前缀和需要设置的环境变量。下面模拟的是安装成功后再次
-执行脚本的输出；前面的 `Already installed` 表示复用已有结果，并不是报错：
+装成功时，末尾会写出统一前缀和要导出的环境变量。下面是装完后再跑一次脚本
+的记录。前面的 `Already installed` 表示沿用已有库，不是失败。
 
 ```text
 Already installed: .../local/io-stack/bin/h5pfc
@@ -107,7 +107,7 @@ Use it with:
   export LD_LIBRARY_PATH=".../local/io-stack/lib:${LD_LIBRARY_PATH:-}"
 ```
 
-默认安装后，主要产物集中在同一个前缀中：
+默认安装后，库和工具都在同一个前缀下。
 
 ```text
 local/io-stack/
@@ -129,7 +129,8 @@ local/io-stack/
     └── libnetcdf.settings
 ```
 
-`libnetcdf.settings` 是构建过程自动写出的“体检单”，本项目中的关键内容为：
+`libnetcdf.settings` 由构建过程自动写出。本机这份里，版本、编译器和并行开关
+是这几行。
 
 ```text
 NetCDF Version:          4.9.3
@@ -157,7 +158,7 @@ parallel4 和 PnetCDF 支持。
 命令中会自动加入 MPI 的头文件和库。`nc-config`、`nf-config`、`pnetcdf-config` 分别
 报告 netCDF-C、netCDF-Fortran 和 PnetCDF 的安装信息。
 
-先设置环境变量，再逐项检查：
+先导出环境变量，再逐项查。
 
 ```bash
 export IO_ROOT="$PWD/local/io-stack"
@@ -181,7 +182,7 @@ netCDF-Fortran 4.6.2 和 PnetCDF 1.15.0。
 
 ### 这一步留下了什么
 
-本机实测输出很短，正好可以逐行核对：
+本机输出只有这几行，可以对着看。
 
 ```text
 .../MPAS_tutorial/local/io-stack/bin/mpifort
@@ -195,7 +196,7 @@ PnetCDF 1.15.0
 这些查询不会生成文件，`export` 也只对当前 shell 生效。若第一行落到 `/usr/bin/mpifort`
 或并行功能返回 `no`，先检查 `PATH` 和安装参数，再用同一套编译器与 MPI 重建相关库。
 
-最后检查 MPAS 实际会加载哪些动态库：
+再看 MPAS 实际会加载哪些动态库。
 
 ```bash
 ldd local/mpas-8.4.2/bin/mpas_atmosphere | \
@@ -225,9 +226,8 @@ libhdf5.so.310 => .../local/io-stack/lib/libhdf5.so.310 (...)
 
 ## 用自己的话讲一遍
 
-1. 为什么已经安装 HDF5，还要安装 PnetCDF？
-2. 为什么同一个文件不会同时依次经过 HDF5 和 PnetCDF？
-3. 为什么一定要确认 `mpifort` 来自哪个目录？
+1. 已经有 HDF5，为什么还要装 PnetCDF？
+2. 同一个文件为什么不会先走 HDF5 再走 PnetCDF？
+3. 为什么要确认 `mpifort` 来自哪个目录？
 
-回答时不要把 PIO、PnetCDF 和 MPI-IO 当成同一个库。沿着本课的箭头，从 MPAS 变量一路
-讲到文件系统，三者各自做什么就清楚了。
+PIO、PnetCDF 和 MPI-IO 是三层。顺着上面的箭头，从 MPAS 变量讲到文件系统。

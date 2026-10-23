@@ -2,11 +2,11 @@
 
 ## MPAS 为什么还要用 WPS
 
-做过 WRF 的读者，对 `ungrib.exe` 肯定不陌生。GFS 下载回来是 GRIB2 文件，先由
-`ungrib.exe` 解码，再交给 `metgrid.exe`。到了 MPAS，这个开头没有变：MPAS 的初始化
-程序也不直接读取 GRIB2，所以仍要借用 WPS 的 `ungrib.exe`。
+做过 WRF 的人对 `ungrib.exe` 不陌生。GFS 下来是 GRIB2，先由 `ungrib.exe` 解码，
+再交给 `metgrid.exe`。MPAS 这边开头一样。初始化程序不读 GRIB2，所以仍借用 WPS 的
+`ungrib.exe`。
 
-不过，MPAS 只借用 WPS 的“解码”部分。下面四样东西要先认清：
+借的只是解码。先把这四样分开。
 
 - **`ungrib.exe`**：读取 GRIB/GRIB2，并写成 WPS 中间格式；
 - **Vtable**：告诉 `ungrib.exe` 每个 GRIB 参数号该叫什么。例如温度写成 `TT`，风写成
@@ -17,7 +17,7 @@
 - **WPS 中间格式**：`ungrib.exe` 的输出。文件里有变量、层次、有效时刻和 GFS 自己的
   经纬网信息，此时还没有插值到 MPAS 网格。
 
-这一段处理可以画成：
+这一段可以画成。
 
 ```text
 GFS GRIB2 --ungrib.exe + Vtable.GFS--> FILE:YYYY-MM-DD_HH
@@ -34,8 +34,8 @@ GFS GRIB2 --ungrib.exe + Vtable.GFS--> FILE:YYYY-MM-DD_HH
 
 ## 编译 WPS 前先检查环境
 
-以下命令都在仓库根目录执行。编译 WPS 还要用到 `autoreconf` 和 Python 3；建立 GFS
-软链接时要用 C shell。正式编译前，先把这些命令逐个检查一遍：
+以下命令都在仓库根目录。编译 WPS 还要 `autoreconf` 和 Python 3。建 GFS 软链接
+要用 C shell。正式编译前先把这些命令查一遍。
 
 ```bash
 command -v gcc g++ gfortran autoreconf cmake curl git make python3 tar csh
@@ -43,8 +43,8 @@ command -v gcc g++ gfortran autoreconf cmake curl git make python3 tar csh
 
 ### 这一步留下了什么
 
-这是一次只读检查，不会生成文件。正常终端输出是一组可执行文件路径；路径可以因机器而异，
-但不能缺行：
+这是只读检查，不生成文件。正常输出是一组可执行文件路径。路径可以因机器而异，
+不能缺行。
 
 ```text
 /usr/bin/gcc
@@ -60,21 +60,21 @@ command -v gcc g++ gfortran autoreconf cmake curl git make python3 tar csh
 若有缺项，请安装相应软件或整理 `PATH`。编译器装在非标准位置时，使用安装脚本的
 `--cc/--cxx/--fc` 参数；`csh` 则可通过环境变量 `CSH=/path/to/csh` 指定。
 
-如果找不到 `csh`，请先安装，不能拿 Bash 直接运行 `link_grib.csh`。已经安装、但不在
-`PATH` 中时，可以这样指定：
+如果找不到 `csh`，先装，不能拿 Bash 直接跑 `link_grib.csh`。已经装了但不在
+`PATH` 里时，可以指给脚本。
 
 ```bash
 CSH=/path/to/csh ./prepare_beijing_case.sh
 ```
 
-第 1 课若已经使用 `--with-wps`，下面这一步可以跳过：
+第 1 课若已经使用 `--with-wps`，下面这一步可以跳过。
 
 ```bash
 ./install_wps.sh -y
 ```
 
 在默认安装中，本项目自己编译的 OpenMPI 和 netCDF 都放在 `local/io-stack`。换到另一台
-机器后，可以用下面的完整命令重建：
+机器后，可以用下面的完整命令重建。
 
 ```bash
 ./install_wps.sh -y -j "$(nproc)" \
@@ -94,7 +94,7 @@ WPS 4.6.0 的 Fortran 模块若并行编译容易互相抢占，因此脚本对 
 
 ### 这一步留下了什么
 
-安装成功时，终端最后会出现类似下面几行：
+安装成功时，终端最后几行可以对照。路径按本机前缀替换。
 
 ```text
 WPS installation complete: /path/to/MPAS_tutorial/local/wps-4.6.0
@@ -102,7 +102,7 @@ Load this installation with:
   export PATH="/path/to/MPAS_tutorial/local/wps-4.6.0/bin:$PATH"
 ```
 
-仓库中的安装结果可概括为：
+仓库里的安装结果可以概括成这棵目录。
 
 ```text
 local/wps-4.6.0/
@@ -124,7 +124,7 @@ build/、downloads/             # 可重建的编译目录和源码缓存，可�
 
 ## 本例用哪一批 GFS
 
-本课使用共享盘中一批完整的 GFS 起报资料：
+本课使用共享盘中一批完整的 GFS 起报资料。
 
 - 起报时刻：2026-10-15 00 UTC；
 - 输入：`f000, f003, ..., f024`，共 9 个文件；`f000` 是起报时刻，`f024` 是第 24 小时；
@@ -141,7 +141,7 @@ build/、downloads/             # 可重建的编译目录和源码缓存，可�
 
 ## 建立 GFS 链接，写好 `namelist.wps`
 
-运行：
+在仓库根目录跑准备脚本。
 
 ```bash
 ./prepare_beijing_case.sh
@@ -153,14 +153,14 @@ GFS 检查失败，`downloads/` 和案例目录中也可能已经留下网格文
 
 ### 这一步留下了什么
 
-脚本本身的终端回显很短：
+脚本自己的回显很短。
 
 ```text
 Prepared /path/to/MPAS_tutorial/work/beijing_240km_2026101500
 Next: cd '/path/to/MPAS_tutorial/work/beijing_240km_2026101500' && ./ungrib.exe
 ```
 
-真正重要的是目录。以下只列关键文件，不展开全部分区文件：
+要看的是目录。下面只列关键文件，分区文件不展开。
 
 ```text
 work/beijing_240km_2026101500/
@@ -183,7 +183,7 @@ work/beijing_240km_2026101500/
 `--forecast-hours`、`--interval-hours`、`--case-dir` 等参数，不要先手改这两个生成文件。
 
 `case.env` 保存后续脚本要复用的元数据。按当前版本脚本重新准备本例后，完整内容如下；
-最前面的两个路径会按你的仓库位置自动填写：
+最前面的两个路径会按你的仓库位置自动填写。
 
 ```text
 export MPAS_TUTORIAL_ROOT=/path/to/MPAS_tutorial
@@ -202,7 +202,7 @@ export WPS_GEOG=/eds/shared/dm/WPS_GEOG
 
 重跑准备脚本时，它还会重新解压官方包，覆盖同名的 grid、static、graph 和分区文件，并
 重建输入链接与两份配置；但它**不会清理**旧的 `FILE:*`、`init.nc`、history、diag 或
-日志。换日期时务必把日期写进新目录名，例如：
+日志。换日期时把日期写进新目录名。
 
 ```bash
 DATE=20261016
@@ -215,7 +215,7 @@ DATE=20261016
 `--forecast-hours` 能被 `--interval-hours` 整除；否则结束时刻没有对应的 `FILE:*`，
 后续验收会出现“时间写到了，资料却没到”的断裂。
 
-先别急着运行。花半分钟看一眼输入是否齐全：
+先别跑 `ungrib.exe`。花半分钟看输入齐不齐。
 
 ```bash
 find work/beijing_240km_2026101500 -maxdepth 1 \
@@ -224,14 +224,14 @@ readlink work/beijing_240km_2026101500/Vtable
 sed -n '1,40p' work/beijing_240km_2026101500/namelist.wps
 ```
 
-三个命令的输出依次是链接数、Vtable 的绝对目标路径和 namelist 内容。前两项应类似：
+三个命令依次给出链接数、Vtable 的绝对路径和 namelist。前两项应接近。
 
 ```text
 9
 /path/to/MPAS_tutorial/src/WPS-4.6.0/ungrib/Variable_Tables/Vtable.GFS
 ```
 
-`namelist.wps` 的内容应与下面一致：
+`namelist.wps` 应与下面这份一致。
 
 ```fortran
 &share
@@ -256,7 +256,7 @@ sed -n '1,40p' work/beijing_240km_2026101500/namelist.wps
 
 ## 运行 `ungrib.exe`
 
-输入已经验收后再执行：
+输入核对过再执行。
 
 ```bash
 cd work/beijing_240km_2026101500
@@ -265,7 +265,7 @@ ls -1 FILE:*
 cd ../..
 ```
 
-运行时，主要时间花在读取九个 0.25°全球文件上。紧接着的 `ls` 应列出：
+时间主要花在读九个 0.25° 全球文件上。紧接着的 `ls` 应列出这些名字。
 
 ```text
 FILE:2026-10-15_00
@@ -276,15 +276,15 @@ FILE:2026-10-16_00
 
 ### 这一步留下了什么
 
-`ungrib.exe` 的详细信息写进 `logfile.log`，终端不一定滚动很多内容。省略每行开头的时间戳
-后，日志末尾的关键两行是：
+`ungrib.exe` 的细节写在 `logfile.log`，终端不一定滚很多。去掉每行开头的时间戳后，
+日志末尾是这两行。
 
 ```text
 ****  Done deleting temporary files.
 *** Successful completion of program ungrib.exe ***
 ```
 
-案例目录新增的是普通文件，而不是软链接：
+案例目录新增的 `FILE:*` 和 `logfile.log` 都是普通文件。
 
 ```text
 work/beijing_240km_2026101500/
@@ -296,14 +296,14 @@ work/beijing_240km_2026101500/
 ```
 
 九个 `FILE:*` 实测合计约 6.9 GiB，是本章最大的新增内容。它们是 **WPS intermediate
-二进制格式，不是 NetCDF**：不要用 `ncdump`，通用的 `file` 命令也可能把它误认成别的
+二进制格式**。不要用 `ncdump`，通用的 `file` 命令也可能把它误认成别的
 格式，内容核验应使用下文的 `rd_intermediate`。它们不能用文本编辑器修改；日期、变量或
 Vtable 选错时，应修正输入后重新运行 `ungrib.exe`。磁盘紧张时可以删除 `FILE:*` 后重建，
 但不要把 `GRIBFILE.*` 的软链接大小误认为原始 GFS 的实际占用。
 
 ## 怎样确认 `ungrib.exe` 真正做对了
 
-不要只看命令有没有返回。先检查日志中的成功标记，再数一遍时次：
+不要只看命令有没有返回。先检查日志中的成功标记，再数一遍时次。
 
 ```bash
 CASE_DIR=work/beijing_240km_2026101500
@@ -313,7 +313,7 @@ test "$(find "$CASE_DIR" -maxdepth 1 -type f -name 'FILE:*' | wc -l)" -eq 9
 ```
 
 文件名齐全还不够，还要看看中间文件里到底有什么。下面的检查工具会顺序读完整个文件，
-因此可能要等一会儿。检查结果写入案例目录，之后查找字段会方便一些：
+因此可能要等一会儿。检查结果写入案例目录，之后查找字段会方便一些。
 
 ```bash
 local/wps-4.6.0/bin/rd_intermediate \
@@ -326,8 +326,8 @@ grep -E '^FIELD = (TT|UU|VV|RH|PSFC|PMSL|SKINTEMP|SM000010|ST000010)$' \
 
 ### 这一步留下了什么
 
-`rd_intermediate` 不修改 `FILE:*`，只新增普通文本
-`intermediate_inventory.txt`。其中一段真实输出如下：
+`rd_intermediate` 不改 `FILE:*`，只多出一个普通文本
+`intermediate_inventory.txt`。温度场 TT 的头是这些。
 
 ```text
 FIELD = TT
@@ -343,7 +343,7 @@ IPROJ = 0  PROJECTION = LAT LON
   EARTH_RADIUS = 6371.229492
 ```
 
-第二条 `grep` 最后应列出九类关键字段；排序后的样子如下：
+第二条 `grep` 应列出九类字段，排序后是这九行。
 
 ```text
 FIELD = PMSL
@@ -373,15 +373,14 @@ FIELD = VV
 - 没有 `GRIBFILE.*`：检查 GFS 路径、文件名和 `link_grib.csh`；后者需要 csh 或 tcsh。
 - 缺少某个 `FILE:*`：检查对应的预报时效、`start_date/end_date` 和 `interval_seconds`。
 - 日志报告未知/缺失字段：检查 GFS 产品是否真是 0.25° pgrb2，以及 Vtable 是否匹配。
-- GRIB2 解码失败：检查本项目的 JasPer、libpng 和 zlib，而不是先怀疑 MPAS 网格。
+- GRIB2 解码失败：先检查本项目的 JasPer、libpng 和 zlib，不要先怀疑 MPAS 网格。
 
 ## 试着用自己的话讲一遍
 
-不用背术语，试着回答：为什么把 240 km 网格换成 25 km 网格以后，这些 `FILE:*` 仍可
-继续使用？
+把 240 km 网格换成 25 km 以后，这些 `FILE:*` 为什么还能用？
 
-沿着数据去向讲最直接：`ungrib.exe` 的输出仍在 GFS 经纬网上，下一步才会插值到 MPAS
-网格。再分别假设“只换网格”和“只换起报时间”，答案自然就出来了。
+`ungrib.exe` 的输出仍在 GFS 经纬网上，下一步才插到 MPAS 网格。只换网格，中间文件不用重做。
+只换起报时间，就要重跑 `ungrib.exe`。
 
 ## 参考
 

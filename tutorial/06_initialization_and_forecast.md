@@ -2,9 +2,8 @@
 
 ## 先从熟悉的 WRF 流程说起
 
-WRF 从静态地理资料走到正式积分，要依次经过 `geogrid.exe`、`metgrid.exe`、`real.exe`
-和 `wrf.exe`。MPAS 的程序划分不一样。`init_atmosphere_model` 分两次运行，承担其中多项
-准备工作：
+WRF 从静态地理资料走到积分，依次是 `geogrid.exe`、`metgrid.exe`、`real.exe` 和
+`wrf.exe`。MPAS 把中间几步收进 `init_atmosphere_model`，这个程序要跑两次。
 
 ```text
 WRF:   geogrid.exe       metgrid.exe + real.exe       wrf.exe
@@ -13,13 +12,13 @@ MPAS: grid -> static       static + FILE -> init   atmosphere_model
              \____________ init_atmosphere_model ______/
 ```
 
-这并不是说 MPAS 完全不用 WPS。第 4 课已经运行过 `ungrib.exe`，GRIB2 仍由它解码。
+MPAS 仍然要用 WPS。第 4 课已经运行过 `ungrib.exe`，GRIB2 仍由它解码。
 MPAS 的静态资料制作，大致对应 `geogrid.exe` 所做的事；气象场水平插值、垂直坐标建立
 和完整初值制作，则合并了 `metgrid.exe` 与 `real.exe` 的部分职责。
 
 ## 开始之前，把四类输入认全
 
-不要急着敲命令，先确认自己知道每个文件从哪里来、有什么用：
+先对一下每个文件从哪来、干什么。表里是本案例的来源。
 
 | 输入 | 内容 | 本案例来源 |
 |---|---|---|
@@ -40,33 +39,33 @@ MPAS 的静态资料制作，大致对应 `geogrid.exe` 所做的事；气象场
 
 ## 为什么要把准备工作分成两步
 
-完整的真实资料初始化分为两步：
+真实资料初始化分两步。
 
 ```text
 阶段 A：grid.nc + WPS_GEOG  -> static.nc       每张网格一次，必须用 1 个 MPI 进程
 阶段 B：static.nc + FILE:<起报有效时刻> -> init.nc  每个起报时刻一次，可以并行
 ```
 
-本例已经下载了现成的 static 文件，所以只执行阶段 B。两步分开的好处很实际：以后只换
-起报日期时，重新制作 init 即可，不必每次都读取体积庞大的静态地理资料。
+本例已经有现成的 static，所以只做阶段 B。以后只换起报日期时，重做 init 就行，
+不必每次再读那一堆静态地理资料。
 
 ## GFS 资料怎样变成 MPAS 初值
 
 `FILE:2026-10-15_00` 采用 1440×721 的 0.25°规则经纬网。初始化程序先把风、温、湿、
-气压和陆面状态水平插值到 10242 个 Voronoi 网格单元，再建立 MPAS 垂直坐标：
+气压和陆面状态水平插值到 10242 个 Voronoi 网格单元，再建立 MPAS 垂直坐标。
 
 - `config_nfglevels=38`：为气象初猜资料预留最多 38 个不同层次。本例日志实际报告
   `Found 34 levels in the first-guess data`，所以 38 是容量，不是资料的实际层数；
 - `config_nvertlevels=55`：55 个 MPAS 模式质量层，并有 56 个层界面；
 - `config_ztop=30000`：几何高度约 30 km 的模式顶，不是“30 km 分辨率”或“100 hPa 顶”。
 
-制作初值并不是把 GFS 数组原样复制过去。水平风要转换为 MPAS 网格边上的法向速度；
+水平风要转换为 MPAS 网格边上的法向速度；
 地面气压要与新网格上的地形相协调；水汽、土壤状态、海温和海冰也要一起整理成模式能够
 直接积分的状态。
 
 ## 第一步：检查第 4 课留下的文件
 
-从仓库根目录检查，不满足就先重新执行准备与 ungrib：
+从仓库根目录查。缺文件就先重跑准备脚本和 ungrib。
 
 ```bash
 export CASE_DIR="$PWD/work/beijing_240km_2026101500"
@@ -79,7 +78,7 @@ test "$(find "$CASE_DIR" -maxdepth 1 -type f -name 'FILE:*' | wc -l)" -eq 9
 这里使用 `export`，是为了让后面的 `run_beijing_case.sh` 也收到同一个案例目录；只写
 `CASE_DIR=...` 而不导出，当前 shell 的检查会用新目录，子脚本却可能仍回到默认目录。
 
-若检查失败，执行：
+检查失败就补跑这两条。
 
 ```bash
 ./prepare_beijing_case.sh --case-dir "$CASE_DIR"
@@ -92,8 +91,8 @@ namelist 绕过检查。
 
 ### 这一步留下了什么
 
-四个 `test` 都通过时，终端**没有任何输出**，退出状态为 0。这是正常现象，不是命令没
-执行。此时第 6 课真正依赖的目录骨架应是：
+四个 `test` 都通过时，终端**没有任何输出**，退出状态为 0。这是正常的。
+第 6 课真正依赖的目录骨架是这些。
 
 ```text
 work/beijing_240km_2026101500/
@@ -120,7 +119,7 @@ NTASKS=16 ./run_beijing_case.sh init
 
 脚本会链接本项目编译的 `mpas_init_atmosphere` 和所需查找表，生成
 `namelist.init_atmosphere`、`streams.init_atmosphere`，再调用本项目自己编译的
-OpenMPI。它不会重新制作 static；这一步实际读取和写出的文件如下：
+OpenMPI。它不重做 static。这一步读和写的文件是这些。
 
 ```text
 x1.10242.static.nc + FILE:2026-10-15_00
@@ -131,13 +130,13 @@ x1.10242.static.nc + FILE:2026-10-15_00
 ### 这一步留下了什么
 
 终端开头会把从 `case.env` 读到的时间打印出来。MPAS 的详细输出写进日志，所以屏幕上不
-一定持续滚动：
+一定持续滚动。
 
 ```text
 Case timing: 2026-10-15_00:00:00 -> 2026-10-16_00:00:00 (run duration 1_00:00:00; input every 3h)
 ```
 
-一次成功的 init 会新增或更新这些关键文件：
+一次成功的 init 会新增或更新这些关键文件。
 
 ```text
 work/beijing_240km_2026101500/
@@ -150,7 +149,7 @@ work/beijing_240km_2026101500/
 └── log.init_atmosphere.0000.out   # 普通文本日志，实测约 23 KiB
 ```
 
-脚本生成的 namelist 中，最值得先核对的是：
+脚本写出的 namelist 里，先对这几项。
 
 ```fortran
 &nhyd_model
@@ -171,7 +170,7 @@ work/beijing_240km_2026101500/
 /
 ```
 
-对应 streams 的真实数据通道是：
+对应 streams 里，真正读写的是这两段。
 
 ```xml
 <immutable_stream name="input" type="input"
@@ -189,7 +188,7 @@ work/beijing_240km_2026101500/
 
 ### 检查初值是否合格
 
-先看日志。程序必须明确结束，而且不能有错误：
+先看日志。程序必须明确结束，而且不能有错误。
 
 ```bash
 LOG="$CASE_DIR/log.init_atmosphere.0000.out"
@@ -197,7 +196,7 @@ grep -E 'Finished running|Warning messages|Error messages|Critical error message
 grep 'Found .* levels in the first-guess data' "$LOG"
 ```
 
-本例应看到：
+本例日志里是这几行。
 
 ```text
 Finished running the init_atmosphere core
@@ -208,7 +207,7 @@ Found 34 levels in the first-guess data
 ```
 
 然后检查网格大小、垂直层数和起报时间。`xtime` 是 NetCDF 文件中记录模拟有效时刻的
-字符变量，可以类比 WRF 文件中的 `Times`：
+字符变量，可以类比 WRF 文件中的 `Times`。
 
 ```bash
 local/io-stack/bin/ncdump -h "$CASE_DIR/x1.10242.init.nc" \
@@ -219,7 +218,7 @@ local/io-stack/bin/ncdump -v nominalMinDc \
   "$CASE_DIR/x1.10242.init.nc" | tail -8
 ```
 
-真实输出节选如下，长变量清单无需整段抄进检查记录：
+输出很长，检查记录里留这几行就够。
 
 ```text
 dimensions:
@@ -241,7 +240,7 @@ nominalMinDc = 240000 ;
 说明初始化确实使用了正确的网格、时刻和垂直层。单看“文件已经生成，而且体积不小”，
 远远不够。
 
-这时不妨顺手看看脚本写出的配置文件，把第 5 课讲过的参数逐项对上：
+再打开脚本写出的配置，和第 5 课的参数对一下。
 
 ```bash
 sed -n '1,180p' "$CASE_DIR/namelist.init_atmosphere"
@@ -250,21 +249,21 @@ sed -n '1,160p' "$CASE_DIR/streams.init_atmosphere"
 
 ## 第三步：从冷启动积分 24 小时
 
-初值验收通过后执行：
+初值核对过再积分。
 
 ```bash
 NTASKS=16 ./run_beijing_case.sh forecast
 ```
 
 这条命令在前台运行，返回时预报已经结束。想实时看进度，可以另开一个终端；新终端不会
-继承原终端临时设置的变量，所以要把 `CASE_DIR` 设成同一个目录：
+继承原终端临时设置的变量，所以要把 `CASE_DIR` 设成同一个目录。
 
 ```bash
 export CASE_DIR="$PWD/work/beijing_240km_2026101500"
 tail -f "$CASE_DIR/log.atmosphere.0000.out"
 ```
 
-模式结束后按 Ctrl-C 退出实时查看。随后回到原终端检查日志末尾：
+模式结束后按 Ctrl-C 退出实时查看。随后回到原终端检查日志末尾。
 
 ```bash
 tail -n 50 "$CASE_DIR/log.atmosphere.0000.out"
@@ -272,7 +271,7 @@ tail -n 50 "$CASE_DIR/log.atmosphere.0000.out"
 
 ### 这一步留下了什么
 
-终端仍会先打印同一行案例时间。模式结束后，案例目录新增一组普通 NetCDF 大文件：
+终端仍会先打印同一行案例时间。模式结束后，案例目录新增一组普通 NetCDF 大文件。
 
 ```text
 work/beijing_240km_2026101500/
@@ -289,13 +288,13 @@ work/beijing_240km_2026101500/
 └── log.atmosphere.0000.out                 # 普通文本，实测约 88 KiB
 ```
 
-`restart_timestamp` 是普通文本，本例内容为：
+`restart_timestamp` 是普通文本。本例里面是这一行。
 
 ```text
  2026-10-16_00:00:00
 ```
 
-连同第 4 课的 WPS 中间文件，完整案例在本机约占 8.4 GiB：
+连同第 4 课的 WPS 中间文件，完整案例在本机约占 8.4 GiB。
 
 ```bash
 du -sh "$CASE_DIR"
@@ -308,7 +307,7 @@ du -sh "$CASE_DIR"
 不同文件系统的统计值可能略有差异。这里的重点是确认大头来自可重建
 的 `FILE:*` 和模式输出；这些大文件不应提交到 Git。
 
-namelist 中本次积分的关键节选是：
+这次积分的 namelist 节选是这些。
 
 ```fortran
 &nhyd_model
@@ -325,7 +324,7 @@ namelist 中本次积分的关键节选是：
 /
 ```
 
-streams 中则能直接读出文件名和频率：
+streams 里能直接读出文件名和频率。
 
 ```xml
 <immutable_stream name="input"
@@ -359,7 +358,7 @@ history、diag、restart 或日志；重跑前应换一个新的 `CASE_DIR`，�
 
 ### 检查预报是否完整
 
-先检查日志中的结束标记和错误计数：
+先检查日志中的结束标记和错误计数。
 
 ```bash
 LOG="$CASE_DIR/log.atmosphere.0000.out"
@@ -370,7 +369,7 @@ grep -E 'Finished running|Warning messages|Error messages|Critical error message
 三条已知警告是初值中没有云冰 `qi`、雪 `qs`、霰 `qg` 三种冰相水凝物，程序在这个教学
 算例中仍会继续运行。如果你的日志也是 3 条警告，但内容不同，不能只看数量相同就忽略。
 
-真实日志末尾的摘要是：
+本机日志末尾是这三行计数。
 
 ```text
 Finished running the atmosphere core
@@ -379,7 +378,7 @@ Error messages = 0
 Critical error messages = 0
 ```
 
-接着检查输出文件数量和最后时刻：
+接着检查输出文件数量和最后时刻。
 
 ```bash
 find "$CASE_DIR" -maxdepth 1 -type f -name 'history.*.nc' | sort
@@ -398,14 +397,14 @@ local/io-stack/bin/ncdump -v xtime \
 算在内。如果重复使用旧的案例目录，请先分清哪些文件是上一次留下的。否则文件数量看似
 正确，也可能只是旧文件凑出来的，不能证明这次预报成功。
 
-最后一个诊断文件的关键内容应是：
+最后一个诊断文件的 `xtime` 应是这一行。
 
 ```text
 xtime =
   "2026-10-16_00:00:00                                             " ;
 ```
 
-如果希望制作初值后紧接着运行预报，可以在干净的案例目录中执行：
+初值和预报要连着跑，在干净的案例目录里用 `all`。
 
 ```bash
 NTASKS=16 ./run_beijing_case.sh all
@@ -438,13 +437,13 @@ NTASKS=16 ./run_beijing_case.sh all
   不一致，或第 4 课的 ungrib 尚未完成。
 - 初值时间与起报时刻不同：同时核对 `xtime`、`config_start_time` 和 streams 中的输入
   文件名。
-- 日志出现 CFL（库朗数，衡量一个时间步内信息跨越多少个网格尺度）、NaN 或速度爆炸：
+- 日志出现 CFL（库朗数，衡量一个时间步内信息跨越多少个网格尺度）、NaN 或速度爆炸。
   先核对网格对应的 `config_dt` 和初值，再考虑物理方案。
 - 已经出现 `.nc`，但日志没有完成标记：把它视为未写完的文件，不要拿去做后处理。
 
 ## 试着用自己的话讲一遍
 
-请向另一位熟悉 WRF 的同事解释：遇到下面四种变化，哪些步骤要重做？
+四种改动，分别要重做哪些文件。
 
 1. 只换起报日期：重新运行 `ungrib.exe` 并制作 init；同一网格的 static 和分区可复用。
 2. 只把同一张网格刚性旋转到北京：`FILE:*` 和原分区可复用，但 static、init 必须重做。
@@ -453,7 +452,7 @@ NTASKS=16 ./run_beijing_case.sh all
 4. 只把 MPI 从 16 改为 32：气象初值和邻接关系都不变，但必须提供同网格的 `.part.32`，
    因为网格要重新分成 32 份。
 
-这四种变化问的都是：资料时间、网格和进程数改变以后，分别会牵动哪些文件。
+四问分别牵动资料时间、网格位置和进程数。
 
 ## 参考
 
